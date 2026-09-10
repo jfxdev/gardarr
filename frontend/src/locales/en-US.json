@@ -10,7 +10,9 @@
     "selectAll": "Select all",
     "clearAll": "Clear all",
     "close": "Close",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "saving": "Saving…"
   },
   "nota": "Grade",
   "ratio": {
@@ -53,6 +55,7 @@
     "users": "Users",
     "analytics": "Analytics",
     "history": "History",
+    "reports": "Reports",
     "integrations": "Integrations",
     "settings": "Settings",
     "profile": "Profile",
@@ -1216,6 +1219,9 @@
       "name": "Webhook",
       "description": "Send HTTP requests to custom endpoints when torrent events occur"
     },
+    "discord": {
+      "description": "Send Gardarr events and transfer reports to Discord channels"
+    },
     "ntfy": {
       "name": "Ntfy",
       "description": "Send push notifications to your mobile devices using the Ntfy service"
@@ -1702,8 +1708,64 @@
     "groups": {
       "torrent": "Torrent events",
       "worker": "Worker events",
-      "schedule": "Schedule events"
+      "schedule": "Schedule events",
+      "report": "Reports"
     }
+  },
+  "reports": {
+    "title": "Transfer reports",
+    "subtitle": "Periodic upload and download rankings from qBittorrent counters.",
+    "settings": "Schedule",
+    "settingsDescription": "Times use the Gardarr timezone configured in Settings.",
+    "enabled": "Enable reports",
+    "snapshots": "Snapshots per day",
+    "topN": "Ranking size",
+    "dailyTime": "Daily report time",
+    "weeklyDay": "Weekly report day",
+    "weeklyTime": "Weekly report time",
+    "save": "Save schedule",
+    "saved": "Report settings saved.",
+    "loadFailed": "Could not load transfer reports.",
+    "saveFailed": "Could not save report settings.",
+    "noReport": "No report generated yet.",
+    "daily": "Daily report",
+    "weekly": "Weekly report",
+    "upload": "Upload",
+    "download": "Download",
+    "noUpload": "No upload movement available for this period.",
+    "noDownload": "No download movement available for this period.",
+    "partial": "Some workers were unavailable.",
+    "weekdays": { "0": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday" }
+  },
+  "discord": {
+    "subtitle": "Receive Gardarr events and transfer reports in Discord.",
+    "add": "Add destination",
+    "empty": "No Discord destinations configured yet.",
+    "loadFailed": "Could not load Discord integrations.",
+    "saved": "Discord destination saved.",
+    "saveFailed": "Could not save Discord destination.",
+    "deleted": "Discord destination removed.",
+    "deleteFailed": "Could not remove Discord destination.",
+    "confirmDelete": "Remove this Discord destination?",
+    "testSent": "Test sent to Discord.",
+    "testFailed": "Discord test failed.",
+    "allEvents": "All events",
+    "selectedEvents": "{{count}} selected events",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "test": "Test",
+    "edit": "Edit Discord destination",
+    "create": "Add Discord destination",
+    "secretHelp": "The webhook URL is encrypted and is never shown again after saving.",
+    "name": "Name",
+    "webhookUrl": "Discord webhook URL",
+    "keepUrl": "Leave blank to keep the current URL",
+    "allEventsHelp": "Includes future Gardarr event types.",
+    "eventTypes": "Event types",
+    "statusFilter": "Statuses",
+    "categoryFilter": "Categories",
+    "nameFilter": "Name terms",
+    "filterHelp": "Torrent filters only apply to torrent events; reports and worker events still follow their event selection."
   },
   "forgotPassword": {
     "title": "Forgot Your Password?",

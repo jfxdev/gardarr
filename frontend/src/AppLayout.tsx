@@ -1,6 +1,6 @@
 // AppLayout.tsx
 import { Button } from "@/components/ui/button";
-import { Settings, Users, ArrowDownUp, Menu, Sun, Moon, Info, LogOut, FolderOpen, UserCircle, Server, Plug, History, Tag, Rss } from "lucide-react";
+import { Settings, Users, ArrowDownUp, Menu, Sun, Moon, Info, LogOut, FolderOpen, UserCircle, Server, Plug, History, Tag, Rss, BarChart3 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import PageTransition from "@/components/PageTransition";
@@ -108,6 +108,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       items: [
         { href: "/torrents", icon: ArrowDownUp, label: t("navigation.torrents"), key: "torrents" },
         { href: "/history", icon: History, label: t("navigation.history"), key: "history" },
+        { href: "/reports", icon: BarChart3, label: t("navigation.reports", "Reports"), key: "reports" },
       ],
     },
     {

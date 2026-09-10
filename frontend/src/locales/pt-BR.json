@@ -10,7 +10,9 @@
     "selectAll": "Selecionar todos",
     "clearAll": "Limpar todos",
     "close": "Fechar",
-    "refresh": "Atualizar"
+    "refresh": "Atualizar",
+    "edit": "Editar",
+    "saving": "Salvando…"
   },
   "nota": "Nota",
   "ratio": {
@@ -53,6 +55,7 @@
     "users": "Usuários",
     "analytics": "Análises",
     "history": "Histórico",
+    "reports": "Relatórios",
     "integrations": "Integrações",
     "settings": "Configurações",
     "profile": "Perfil",
@@ -1244,6 +1247,9 @@
       "name": "Webhook",
       "description": "Envie requisições HTTP para endpoints personalizados quando eventos de torrent ocorrerem"
     },
+    "discord": {
+      "description": "Envie eventos e relatórios de transferência do Gardarr para canais Discord"
+    },
     "ntfy": {
       "name": "Ntfy",
       "description": "Envie notificações push para seus dispositivos móveis usando o serviço Ntfy"
@@ -1758,8 +1764,64 @@
     "groups": {
       "torrent": "Eventos de Torrent",
       "worker": "Eventos de Worker",
-      "schedule": "Eventos de Agendamento"
+      "schedule": "Eventos de Agendamento",
+      "report": "Relatórios"
     }
+  },
+  "reports": {
+    "title": "Relatórios de transferência",
+    "subtitle": "Rankings periódicos de upload e download a partir dos contadores do qBittorrent.",
+    "settings": "Agendamento",
+    "settingsDescription": "Os horários usam o fuso do Gardarr definido em Configurações.",
+    "enabled": "Habilitar relatórios",
+    "snapshots": "Snapshots por dia",
+    "topN": "Tamanho do ranking",
+    "dailyTime": "Horário do relatório diário",
+    "weeklyDay": "Dia do relatório semanal",
+    "weeklyTime": "Horário do relatório semanal",
+    "save": "Salvar agendamento",
+    "saved": "Configurações dos relatórios salvas.",
+    "loadFailed": "Não foi possível carregar os relatórios.",
+    "saveFailed": "Não foi possível salvar os relatórios.",
+    "noReport": "Nenhum relatório gerado ainda.",
+    "daily": "Relatório diário",
+    "weekly": "Relatório semanal",
+    "upload": "Upload",
+    "download": "Download",
+    "noUpload": "Nenhuma movimentação de upload disponível no período.",
+    "noDownload": "Nenhuma movimentação de download disponível no período.",
+    "partial": "Alguns workers ficaram indisponíveis.",
+    "weekdays": { "0": "Domingo", "1": "Segunda-feira", "2": "Terça-feira", "3": "Quarta-feira", "4": "Quinta-feira", "5": "Sexta-feira", "6": "Sábado" }
+  },
+  "discord": {
+    "subtitle": "Receba eventos e relatórios de transferência do Gardarr no Discord.",
+    "add": "Adicionar destino",
+    "empty": "Nenhum destino Discord configurado ainda.",
+    "loadFailed": "Não foi possível carregar as integrações Discord.",
+    "saved": "Destino Discord salvo.",
+    "saveFailed": "Não foi possível salvar o destino Discord.",
+    "deleted": "Destino Discord removido.",
+    "deleteFailed": "Não foi possível remover o destino Discord.",
+    "confirmDelete": "Remover este destino Discord?",
+    "testSent": "Teste enviado ao Discord.",
+    "testFailed": "O teste do Discord falhou.",
+    "allEvents": "Todos os eventos",
+    "selectedEvents": "{{count}} eventos selecionados",
+    "enabled": "Habilitado",
+    "disabled": "Desabilitado",
+    "test": "Testar",
+    "edit": "Editar destino Discord",
+    "create": "Adicionar destino Discord",
+    "secretHelp": "A URL do webhook é criptografada e não será exibida novamente após salvar.",
+    "name": "Nome",
+    "webhookUrl": "URL do webhook Discord",
+    "keepUrl": "Deixe em branco para manter a URL atual",
+    "allEventsHelp": "Inclui tipos de eventos futuros do Gardarr.",
+    "eventTypes": "Tipos de evento",
+    "statusFilter": "Status",
+    "categoryFilter": "Categorias",
+    "nameFilter": "Termos no nome",
+    "filterHelp": "Filtros de torrent se aplicam apenas a eventos de torrent; relatórios e eventos de worker seguem a seleção de eventos."
   },
   "forgotPassword": {
     "title": "Esqueceu sua Senha?",

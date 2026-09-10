@@ -22,7 +22,7 @@ import (
 type Payload struct {
 	EventID   string                 `json:"event_id"`
 	EventType string                 `json:"event_type"`
-	WorkerID  string                 `json:"worker_id"`
+	WorkerID  string                 `json:"worker_id,omitempty"`
 	TaskHash  string                 `json:"task_hash"`
 	OldValue  string                 `json:"old_value,omitempty"`
 	NewValue  string                 `json:"new_value,omitempty"`
@@ -249,16 +249,19 @@ func (s *Service) deliver(ctx context.Context, event *entities.Event) deliveryRe
 
 // buildPayload converts an Event entity to a webhook Payload
 func (s *Service) buildPayload(event *entities.Event) *Payload {
-	return &Payload{
+	payload := &Payload{
 		EventID:   event.UUID.String(),
 		EventType: event.Type,
-		WorkerID:  event.WorkerID.String(),
 		TaskHash:  event.TaskHash,
 		OldValue:  event.OldValue,
 		NewValue:  event.NewValue,
 		Metadata:  event.Metadata,
 		Timestamp: event.CreatedAt.Format(time.RFC3339),
 	}
+	if event.WorkerID != uuid.Nil {
+		payload.WorkerID = event.WorkerID.String()
+	}
+	return payload
 }
 
 // SetEnabled enables or disables the webhook service

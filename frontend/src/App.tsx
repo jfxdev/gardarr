@@ -22,8 +22,10 @@ const TagsPage = lazy(() => import('./Tags'))
 const RssPage = lazy(() => import('./Rss'))
 const DashboardPage = lazy(() => import('./Dashboard'))
 const HistoryPage = lazy(() => import('./History'))
+const ReportsPage = lazy(() => import('./Reports'))
 const IntegrationsPage = lazy(() => import('./Integrations'))
 const IntegrationWebhookPage = lazy(() => import('./IntegrationWebhook'))
+const IntegrationDiscordPage = lazy(() => import('./IntegrationDiscord'))
 const SettingsPage = lazy(() => import('./Settings'))
 const AboutPage = lazy(() => import('./About'))
 const ProfilePage = lazy(() => import('./Profile'))
@@ -92,8 +94,10 @@ function App() {
                   <Route path="tags" element={<TagsPage />} />
                   <Route path="rss" element={<RssPage />} />
                   <Route path="history" element={<HistoryPage />} />
+                  <Route path="reports" element={<ReportsPage />} />
                   <Route path="integrations" element={<IntegrationsPage />} />
                   <Route path="integrations/webhooks" element={<IntegrationWebhookPage />} />
+                  <Route path="integrations/discord" element={<IntegrationDiscordPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="settings" element={<ProtectedRoute adminOnly><SettingsPage /></ProtectedRoute>} />
                   <Route path="profile" element={<ProfilePage />} />

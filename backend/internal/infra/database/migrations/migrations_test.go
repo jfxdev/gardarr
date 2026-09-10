@@ -150,6 +150,23 @@ func TestMigration036CreatesBandwidthSchedulesAndBaselineColumns(t *testing.T) {
 	}
 }
 
+func TestMigration042And043CreateTransferAndDiscordTables(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	m := migration.NewMigrator(db)
+	Register(m)
+	if err := m.Up(); err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
+	for _, model := range []interface{}{&models.TransferReportSettings{}, &models.TransferSnapshotRun{}, &models.TransferSnapshot{}, &models.TransferReport{}, &models.DiscordIntegration{}, &models.DiscordDeliveryHistory{}} {
+		if !db.Migrator().HasTable(model) {
+			t.Fatalf("Expected table for %T", model)
+		}
+	}
+}
+
 func TestMigration030RemovesLegacyWorkerTokenColumns(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

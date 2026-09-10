@@ -35,13 +35,14 @@ import {
   WifiOff,
   Wifi,
   Server,
+  BarChart3,
 } from "lucide-react";
 
 export type FilterType = EventType | "all";
 
 export interface Event {
   uuid: string;
-  worker_id: string;
+  worker_id?: string;
   type: EventType;
   task_hash: string;
   old_value?: string;
@@ -133,6 +134,9 @@ export function EventList({
         return <WifiOff className="h-5 w-5" />;
       case "worker.recovered":
         return <Wifi className="h-5 w-5" />;
+      case "report.transfer.daily":
+      case "report.transfer.weekly":
+        return <BarChart3 className="h-5 w-5" />;
     }
   };
 
@@ -152,6 +156,9 @@ export function EventList({
         return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20";
       case "worker.recovered":
         return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+      case "report.transfer.daily":
+      case "report.transfer.weekly":
+        return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20";
     }
   };
 
@@ -173,7 +180,7 @@ export function EventList({
   const isWorkerEvent = (type: EventType) => type === "worker.offline" || type === "worker.recovered";
 
   const getWorkerLabel = (event: Event) =>
-    workerNames[event.worker_id] ?? event.worker_id;
+    event.worker_id ? (workerNames[event.worker_id] ?? event.worker_id) : t("history.table.subject", "System");
 
   const renderWorkerStatus = (oldValue?: string, newValue?: string) => {
     if (!oldValue || !newValue) return null;
@@ -211,6 +218,8 @@ export function EventList({
       "bandwidth.schedule_applied": t("history.badge.bandwidthScheduleApplied", "Bandwidth schedule applied"),
       "worker.offline": t("history.badge.workerOffline", "Worker offline"),
       "worker.recovered": t("history.badge.workerRecovered", "Worker recovered"),
+      "report.transfer.daily": t("history.badge.transferReportDaily", "Daily transfer report"),
+      "report.transfer.weekly": t("history.badge.transferReportWeekly", "Weekly transfer report"),
     };
 
     return typeMap[type];

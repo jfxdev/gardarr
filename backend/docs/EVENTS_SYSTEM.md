@@ -15,6 +15,8 @@ const (
     EventTypeTorrentRemoved     = "torrent.removed"
     EventTypeTorrentCompleted             = "torrent.completed"
     EventTypeBandwidthScheduleApplied     = "bandwidth.schedule_applied"
+    EventTypeTransferReportDaily          = "report.transfer.daily"
+    EventTypeTransferReportWeekly         = "report.transfer.weekly"
 )
 ```
 
@@ -42,6 +44,11 @@ Disparado quando um torrent atinge 100% de progresso
 Disparado quando Gardarr aplica um limite de banda programado ou restaura o limite padrão do worker.
 - **Campos**: `old_value`, `new_value`
 - **Metadata**: `source`, `download_limit`, `upload_limit`, `old_limits`; quando a origem for uma programação, também `schedule_uuid`, `schedule_name`
+
+### `report.transfer.daily` e `report.transfer.weekly`
+Emitidos ao concluir os rankings de tráfego. São eventos globais e não têm
+`worker_id`. O metadata contém período, fuso, cobertura, workers
+indisponíveis e listas `upload`/`download` com os itens classificados.
 
 ## Estrutura de Dados
 
