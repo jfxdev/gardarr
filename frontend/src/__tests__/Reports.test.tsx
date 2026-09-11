@@ -28,6 +28,8 @@ describe('ReportsPage', () => {
     expect((await screen.findAllByText('Alpha')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Some workers were unavailable.')).not.toHaveLength(0)
     expect(screen.getAllByText('No download movement available for this period.')).not.toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Schedule')
     fireEvent.change(screen.getByDisplayValue('4'), { target: { value: '6' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }))
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ snapshots_per_day: 6 })))

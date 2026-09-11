@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Camera, Download, Save, Upload } from 'lucide-react'
+import { AlertTriangle, BarChart3, Camera, Download, Save, Settings2, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { transferReportsService } from '@/services/transferReports'
 import { settingsService } from '@/services/settings'
 import type { LatestTransferReports, TransferRankItem, TransferReport, TransferReportSettings } from '@/types/transferReports'
@@ -154,6 +155,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [capturing, setCapturing] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [discordLanguage, setDiscordLanguage] = useState(i18n.language)
 
   const load = useCallback(async () => {
@@ -180,6 +182,7 @@ export default function ReportsPage() {
       const result = await transferReportsService.updateSettings(settings)
       if (result.data) {
         setSettings(result.data)
+        setSettingsOpen(false)
         toast.success(t('reports.saved', 'Report settings saved.'))
       } else toast.error(result.error || t('reports.saveFailed', 'Could not save report settings.'))
     } catch {
@@ -213,20 +216,23 @@ export default function ReportsPage() {
         <div className="flex-1"><h1 className="text-2xl font-bold tracking-tight">{t('reports.title', 'Transfer reports')}</h1><p className="text-sm text-muted-foreground">{t('reports.subtitle', 'Periodic upload and download rankings from qBittorrent counters.')}</p></div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { void captureSnapshot() }} disabled={capturing || loading}><Camera className="mr-2 h-4 w-4" />{capturing ? t('reports.capturingSnapshot', 'Capturing…') : t('reports.captureSnapshot', 'Capture snapshot now')}</Button>
+          <Button variant="outline" onClick={() => { setSettingsOpen(true) }} disabled={loading}><Settings2 className="mr-2 h-4 w-4" />{t('reports.configure', 'Configure')}</Button>
         </div>
       </div>
-      <Card>
-        <CardHeader><CardTitle>{t('reports.settings', 'Schedule')}</CardTitle><CardDescription>{t('reports.settingsDescription', 'Times use the Gardarr timezone configured in Settings.')}</CardDescription></CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="flex items-center justify-between rounded-lg border p-3"><Label htmlFor="reports-enabled">{t('reports.enabled', 'Enable reports')}</Label><Switch id="reports-enabled" checked={settings.enabled} onCheckedChange={(enabled) => { setSettings((value) => ({ ...value, enabled })) }} /></div>
-          <div className="space-y-2"><Label>{t('reports.snapshots', 'Snapshots per day')}</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={settings.snapshots_per_day} onChange={(event) => { setSettings((value) => ({ ...value, snapshots_per_day: Number(event.target.value) })) }}>{[1, 2, 3, 4, 6, 8, 12, 24].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
-          <div className="space-y-2"><Label>{t('reports.topN', 'Ranking size')}</Label><Input type="number" min={1} max={50} value={settings.top_n} onChange={(event) => { setSettings((value) => ({ ...value, top_n: Number(event.target.value) })) }} /></div>
-          <div className="space-y-2"><Label>{t('reports.dailyTime', 'Daily report time')}</Label><Input type="time" value={settings.daily_report_time} onChange={(event) => { setSettings((value) => ({ ...value, daily_report_time: event.target.value })) }} /></div>
-          <div className="space-y-2"><Label>{t('reports.weeklyDay', 'Weekly report day')}</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={settings.weekly_report_day} onChange={(event) => { setSettings((value) => ({ ...value, weekly_report_day: Number(event.target.value) })) }}>{weekdays.map((day, index) => <option key={day} value={index}>{t(`reports.weekdays.${index}`, day)}</option>)}</select></div>
-          <div className="space-y-2"><Label>{t('reports.weeklyTime', 'Weekly report time')}</Label><Input type="time" value={settings.weekly_report_time} onChange={(event) => { setSettings((value) => ({ ...value, weekly_report_time: event.target.value })) }} /></div>
-          <div className="md:col-span-2 xl:col-span-3"><Button onClick={() => { void save() }} disabled={saving || loading}><Save className="mr-2 h-4 w-4" />{saving ? t('common.saving', 'Saving…') : t('reports.save', 'Save schedule')}</Button></div>
-        </CardContent>
-      </Card>
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-3xl overflow-y-auto">
+          <DialogHeader><DialogTitle>{t('reports.settings', 'Schedule')}</DialogTitle><DialogDescription>{t('reports.settingsDescription', 'Times use the Gardarr timezone configured in Settings.')}</DialogDescription></DialogHeader>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="flex items-center justify-between rounded-lg border p-3"><Label htmlFor="reports-enabled">{t('reports.enabled', 'Enable reports')}</Label><Switch id="reports-enabled" checked={settings.enabled} onCheckedChange={(enabled) => { setSettings((value) => ({ ...value, enabled })) }} /></div>
+            <div className="space-y-2"><Label>{t('reports.snapshots', 'Snapshots per day')}</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={settings.snapshots_per_day} onChange={(event) => { setSettings((value) => ({ ...value, snapshots_per_day: Number(event.target.value) })) }}>{[1, 2, 3, 4, 6, 8, 12, 24].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
+            <div className="space-y-2"><Label>{t('reports.topN', 'Ranking size')}</Label><Input type="number" min={1} max={50} value={settings.top_n} onChange={(event) => { setSettings((value) => ({ ...value, top_n: Number(event.target.value) })) }} /></div>
+            <div className="space-y-2"><Label>{t('reports.dailyTime', 'Daily report time')}</Label><Input type="time" value={settings.daily_report_time} onChange={(event) => { setSettings((value) => ({ ...value, daily_report_time: event.target.value })) }} /></div>
+            <div className="space-y-2"><Label>{t('reports.weeklyDay', 'Weekly report day')}</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={settings.weekly_report_day} onChange={(event) => { setSettings((value) => ({ ...value, weekly_report_day: Number(event.target.value) })) }}>{weekdays.map((day, index) => <option key={day} value={index}>{t(`reports.weekdays.${index}`, day)}</option>)}</select></div>
+            <div className="space-y-2"><Label>{t('reports.weeklyTime', 'Weekly report time')}</Label><Input type="time" value={settings.weekly_report_time} onChange={(event) => { setSettings((value) => ({ ...value, weekly_report_time: event.target.value })) }} /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => { setSettingsOpen(false) }}>{t('common.cancel', 'Cancel')}</Button><Button onClick={() => { void save() }} disabled={saving || loading}><Save className="mr-2 h-4 w-4" />{saving ? t('common.saving', 'Saving…') : t('reports.save', 'Save schedule')}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       {loading ? <p className="text-sm text-muted-foreground">{t('common.loading', 'Loading…')}</p> : (
         <div className="space-y-8">
           <section className="space-y-4">
