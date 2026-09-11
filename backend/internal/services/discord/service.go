@@ -27,7 +27,10 @@ import (
 	"github.com/jfxdev/gardarr/pkg/logger"
 )
 
-const queueSizeDefault = 100
+const (
+	queueSizeDefault       = 100
+	maxDiscordResponseSize = 1 << 20
+)
 
 type Input struct {
 	Name           string
@@ -343,10 +346,16 @@ func (s *Service) post(ctx context.Context, rawURL string, body []byte) (int, ti
 	req.Header.Set("User-Agent", "Gardarr-Discord/1.0")
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return 0, 0, err
+		if errors.Is(err, context.Canceled) {
+			return 0, 0, context.Canceled
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return 0, 0, context.DeadlineExceeded
+		}
+		return 0, 0, errors.New("discord request failed")
 	}
 	defer resp.Body.Close()
-	responseBody, _ := io.ReadAll(resp.Body)
+	responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxDiscordResponseSize))
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return resp.StatusCode, 0, nil
 	}

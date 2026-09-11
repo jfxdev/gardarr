@@ -32,7 +32,7 @@ type timezoneProvider interface {
 	GetTimezone(context.Context) (string, error)
 }
 type eventRecorder interface {
-	Record(context.Context, *entities.Event) error
+	RecordIfNew(context.Context, *entities.Event) (bool, error)
 }
 
 type Service struct {
@@ -122,23 +122,27 @@ func (s *Service) reconcile(ctx context.Context) {
 	}
 	now := s.now().UTC()
 
-	// A single baseline avoids treating historic all-time counters as traffic
-	// generated after the feature was enabled.
-	count, err := s.repo.CountSnapshots(ctx)
-	if err == nil && count == 0 {
-		if err := s.capture(ctx, now, now); err != nil {
-			logger.Error("transfer reports: baseline failed", "error", err.Error())
-		}
-	}
-
 	localNow := now.In(location)
 	if slot, ok := snapshotSlot(localNow, settings.SnapshotsPerDay); ok {
-		exists, err := s.repo.HasRunAt(ctx, slot.UTC())
+		// A first run is a baseline, so historic qBittorrent counters are never
+		// attributed to the period in which reporting was enabled. Count runs,
+		// not snapshots: a healthy worker with no torrents creates no snapshots.
+		runCount, err := s.repo.CountRuns(ctx)
 		if err != nil {
-			logger.Error("transfer reports: check snapshot slot failed", "error", err.Error())
-		} else if !exists {
+			logger.Error("transfer reports: count snapshot runs failed", "error", err.Error())
+		}
+		if err == nil && runCount == 0 {
 			if err := s.capture(ctx, slot.UTC(), now); err != nil {
-				logger.Error("transfer reports: snapshot failed", "error", err.Error())
+				logger.Error("transfer reports: baseline failed", "error", err.Error())
+			}
+		} else {
+			exists, err := s.repo.HasRunAt(ctx, slot.UTC())
+			if err != nil {
+				logger.Error("transfer reports: check snapshot slot failed", "error", err.Error())
+			} else if !exists {
+				if err := s.capture(ctx, slot.UTC(), now); err != nil {
+					logger.Error("transfer reports: snapshot failed", "error", err.Error())
+				}
 			}
 		}
 	}
@@ -155,11 +159,12 @@ func (s *Service) reconcile(ctx context.Context) {
 }
 
 func snapshotSlot(now time.Time, perDay int) (time.Time, bool) {
-	interval := 24 / perDay
-	if now.Minute() != 0 || now.Hour()%interval != 0 {
+	if perDay <= 0 || 24%perDay != 0 {
 		return time.Time{}, false
 	}
-	return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()), true
+	interval := 24 / perDay
+	hour := now.Hour() - now.Hour()%interval
+	return time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, now.Location()), true
 }
 
 func (s *Service) capture(ctx context.Context, scheduledAt, capturedAt time.Time) error {
@@ -189,7 +194,7 @@ func (s *Service) generatePending(ctx context.Context, settings *entities.Transf
 		return err
 	}
 	if existing != nil && existing.PeriodStart.Equal(start.UTC()) && existing.PeriodEnd.Equal(end.UTC()) {
-		return nil
+		return s.recordReportEvent(ctx, existing)
 	}
 	report, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN)
 	if err != nil {
@@ -199,14 +204,20 @@ func (s *Service) generatePending(ctx context.Context, settings *entities.Transf
 	if err != nil {
 		return err
 	}
-	if s.events != nil {
-		eventType := constants.EventTypeTransferReportDaily
-		if periodType == entities.TransferReportPeriodWeekly {
-			eventType = constants.EventTypeTransferReportWeekly
-		}
-		if err := s.events.Record(ctx, &entities.Event{UUID: uuid.New(), Type: eventType, Metadata: reportMetadata(saved), CreatedAt: s.now().UTC()}); err != nil {
-			return fmt.Errorf("record report event: %w", err)
-		}
+	return s.recordReportEvent(ctx, saved)
+}
+
+func (s *Service) recordReportEvent(ctx context.Context, report *entities.TransferReport) error {
+	if s.events == nil {
+		return nil
+	}
+	eventType := constants.EventTypeTransferReportDaily
+	if report.PeriodType == entities.TransferReportPeriodWeekly {
+		eventType = constants.EventTypeTransferReportWeekly
+	}
+	eventID := uuid.NewSHA1(report.UUID, []byte("transfer-report-event"))
+	if _, err := s.events.RecordIfNew(ctx, &entities.Event{UUID: eventID, Type: eventType, Metadata: reportMetadata(report), CreatedAt: report.GeneratedAt}); err != nil {
+		return fmt.Errorf("record report event: %w", err)
 	}
 	return nil
 }
@@ -235,13 +246,17 @@ func (s *Service) buildReport(ctx context.Context, periodType string, start, end
 		return nil, err
 	}
 	items := rankSnapshots(snapshots, start, end, topN)
+	runCount, err := s.repo.CountRunsBetween(ctx, start, end)
+	if err != nil {
+		return nil, err
+	}
 	errorsByRun, err := s.repo.ListRunErrors(ctx, start, end)
 	if err != nil {
 		return nil, err
 	}
 	unavailable := uniqueWorkerIDs(errorsByRun)
 	coverage := "complete"
-	if len(items.upload) == 0 && len(items.download) == 0 {
+	if runCount == 0 {
 		coverage = "unavailable"
 	}
 	if len(unavailable) > 0 {
@@ -262,7 +277,7 @@ func rankSnapshots(snapshots []entities.TransferSnapshot, start, end time.Time, 
 	for _, snapshot := range snapshots {
 		key := snapshot.WorkerID.String() + "\x00" + strings.ToLower(snapshot.Hash)
 		prior, hasPrior := previous[key]
-		if hasPrior && !snapshot.CapturedAt.Before(start) && !snapshot.CapturedAt.After(end) {
+		if hasPrior && snapshot.CapturedAt.After(start) && !snapshot.CapturedAt.After(end) {
 			up := counterDelta(prior.Uploaded, snapshot.Uploaded)
 			down := counterDelta(prior.Downloaded, snapshot.Downloaded)
 			if up > 0 || down > 0 {

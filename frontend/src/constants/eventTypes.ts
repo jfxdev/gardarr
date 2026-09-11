@@ -38,6 +38,18 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   'report.transfer.weekly': 'Weekly transfer report',
 };
 
+export const EVENT_TYPE_OPTIONS: readonly { type: EventType; label: string }[] = [
+  { type: 'torrent.state_change', label: 'State Change' },
+  { type: 'torrent.added', label: 'Added' },
+  { type: 'torrent.removed', label: 'Removed' },
+  { type: 'torrent.completed', label: 'Completed' },
+  { type: 'bandwidth.schedule_applied', label: 'Bandwidth schedule applied' },
+  { type: 'worker.offline', label: 'Worker offline' },
+  { type: 'worker.recovered', label: 'Worker recovered' },
+  { type: 'report.transfer.daily', label: 'Daily transfer report' },
+  { type: 'report.transfer.weekly', label: 'Weekly transfer report' },
+] as const;
+
 export const EVENT_TYPE_DESCRIPTIONS: Record<EventType, string> = {
   'torrent.state_change': 'Triggered when a torrent changes its state',
   'torrent.added': 'Triggered when a new torrent is added',
@@ -63,7 +75,7 @@ export const SCHEDULE_EVENT_TYPES: readonly EventType[] = ['bandwidth.schedule_a
 export const REPORT_EVENT_TYPES: readonly EventType[] = ['report.transfer.daily', 'report.transfer.weekly'];
 
 export const TORRENT_EVENT_TYPES: readonly EventType[] = EVENT_TYPES.filter(
-  (type) => !WORKER_EVENT_TYPES.includes(type) && !SCHEDULE_EVENT_TYPES.includes(type)
+  (type) => !WORKER_EVENT_TYPES.includes(type) && !SCHEDULE_EVENT_TYPES.includes(type) && !REPORT_EVENT_TYPES.includes(type)
 );
 
 export const EVENT_TYPES_BY_GROUP: Record<EventGroup, readonly EventType[]> = {

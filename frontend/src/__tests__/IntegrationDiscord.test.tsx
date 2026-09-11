@@ -27,7 +27,7 @@ describe('IntegrationDiscordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add destination' }))
     const fields = screen.getAllByRole('textbox')
     fireEvent.change(fields[0], { target: { value: 'Night alerts' } })
-    fireEvent.change(document.querySelector('input[type="password"]')!, { target: { value: 'https://discord.com/api/webhooks/123/token' } })
+    fireEvent.change(screen.getByPlaceholderText('https://discord.com/api/webhooks/...'), { target: { value: 'https://discord.com/api/webhooks/123/token' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Night alerts', webhook_url: 'https://discord.com/api/webhooks/123/token' })))
     expect(toast.success).toHaveBeenCalledWith('Discord destination saved.')

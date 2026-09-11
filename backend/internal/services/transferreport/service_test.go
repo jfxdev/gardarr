@@ -36,11 +36,25 @@ type fakeTimezone struct{ value string }
 
 func (f fakeTimezone) GetTimezone(context.Context) (string, error) { return f.value, nil }
 
-type fakeRecorder struct{ events []*entities.Event }
+type fakeRecorder struct {
+	events []*entities.Event
+	err    error
+	seen   map[uuid.UUID]bool
+}
 
-func (f *fakeRecorder) Record(_ context.Context, event *entities.Event) error {
+func (f *fakeRecorder) RecordIfNew(_ context.Context, event *entities.Event) (bool, error) {
+	if f.err != nil {
+		return false, f.err
+	}
+	if f.seen == nil {
+		f.seen = make(map[uuid.UUID]bool)
+	}
+	if f.seen[event.UUID] {
+		return false, nil
+	}
+	f.seen[event.UUID] = true
 	f.events = append(f.events, event)
-	return nil
+	return true, nil
 }
 
 func testService(t *testing.T) (*Service, *fakeWorkers, *fakeRecorder) {
@@ -82,6 +96,19 @@ func TestRankSnapshotsTreatsCounterResetAsPostResetTraffic(t *testing.T) {
 	}, start, start.Add(24*time.Hour), 10)
 	if ranking.upload[0].Bytes != 20 || ranking.download[0].Bytes != 50 {
 		t.Fatalf("expected current counters after reset, got %#v", ranking)
+	}
+}
+
+func TestRankSnapshotsExcludesTheStartBoundary(t *testing.T) {
+	worker := uuid.New()
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	ranking := rankSnapshots([]entities.TransferSnapshot{
+		{WorkerID: worker, Hash: "boundary", Name: "Boundary", Uploaded: 10, CapturedAt: start.Add(-time.Hour)},
+		{WorkerID: worker, Hash: "boundary", Name: "Boundary", Uploaded: 20, CapturedAt: start},
+		{WorkerID: worker, Hash: "boundary", Name: "Boundary", Uploaded: 25, CapturedAt: start.Add(time.Hour)},
+	}, start, start.Add(24*time.Hour), 10)
+	if len(ranking.upload) != 1 || ranking.upload[0].Bytes != 5 {
+		t.Fatalf("start-boundary traffic was included: %#v", ranking.upload)
 	}
 }
 
@@ -143,6 +170,49 @@ func TestServiceCapturesBuildsAndPersistsDailyReport(t *testing.T) {
 	}
 }
 
+func TestGeneratePendingRetriesFailedReportEventWithoutDuplicatingIt(t *testing.T) {
+	service, _, recorder := testService(t)
+	settings, err := service.GetSettings(context.Background())
+	if err != nil {
+		t.Fatalf("settings: %v", err)
+	}
+	service.now = func() time.Time { return time.Date(2026, 9, 3, 0, 6, 0, 0, time.UTC) }
+	recorder.err = errors.New("temporary event storage failure")
+	if err := service.generatePending(context.Background(), settings, "UTC", time.UTC, service.now(), entities.TransferReportPeriodDaily); err == nil {
+		t.Fatal("expected event failure")
+	}
+	recorder.err = nil
+	if err := service.generatePending(context.Background(), settings, "UTC", time.UTC, service.now(), entities.TransferReportPeriodDaily); err != nil {
+		t.Fatalf("retry event: %v", err)
+	}
+	if len(recorder.events) != 1 {
+		t.Fatalf("expected one retried event, got %d", len(recorder.events))
+	}
+	if err := service.generatePending(context.Background(), settings, "UTC", time.UTC, service.now(), entities.TransferReportPeriodDaily); err != nil {
+		t.Fatalf("idempotent retry: %v", err)
+	}
+	if len(recorder.events) != 1 {
+		t.Fatalf("expected no duplicate event, got %d", len(recorder.events))
+	}
+}
+
+func TestBuildReportKeepsZeroTransferCoverageComplete(t *testing.T) {
+	service, workers, _ := testService(t)
+	workerID := uuid.New()
+	workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "idle", Name: "Idle", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}, Download: entities.TaskDownload{Amount: 100}}}}
+	start := time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)
+	if err := service.capture(context.Background(), start.Add(time.Hour), start.Add(time.Hour)); err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+	report, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, start, start.Add(24*time.Hour), "UTC", 10)
+	if err != nil {
+		t.Fatalf("build report: %v", err)
+	}
+	if report.Coverage != "complete" || len(report.Upload) != 0 || len(report.Download) != 0 {
+		t.Fatalf("expected complete idle report, got %#v", report)
+	}
+}
+
 func TestSettingsAndRankingHelpersValidateInputs(t *testing.T) {
 	service, _, _ := testService(t)
 	valid := entities.TransferReportSettings{Enabled: true, SnapshotsPerDay: 6, DailyReportTime: "01:05", WeeklyReportDay: 0, WeeklyReportTime: "02:10", TopN: 2}
@@ -161,8 +231,8 @@ func TestSettingsAndRankingHelpersValidateInputs(t *testing.T) {
 	if _, ok := snapshotSlot(time.Date(2026, 9, 1, 6, 0, 0, 0, time.UTC), 4); !ok {
 		t.Fatal("expected six-hour snapshot slot")
 	}
-	if _, ok := snapshotSlot(time.Date(2026, 9, 1, 7, 1, 0, 0, time.UTC), 4); ok {
-		t.Fatal("unexpected non-aligned snapshot slot")
+	if slot, ok := snapshotSlot(time.Date(2026, 9, 1, 7, 1, 0, 0, time.UTC), 4); !ok || slot.Hour() != 6 {
+		t.Fatalf("expected latest six-hour slot, got %v ok=%v", slot, ok)
 	}
 	items := sortRankings([]entities.TransferRankItem{{Name: "Zulu", Hash: "z", Bytes: 10}, {Name: "alpha", Hash: "b", Bytes: 10}, {Name: "Alpha", Hash: "a", Bytes: 10}}, 2)
 	if len(items) != 2 || items[0].Hash != "a" || items[1].Hash != "b" || items[0].Rank != 1 {
@@ -177,6 +247,17 @@ func TestSettingsAndRankingHelpersValidateInputs(t *testing.T) {
 	}
 	if _, _, err := service.GetLatest(context.Background()); err != nil && !errors.Is(err, nil) {
 		t.Fatalf("empty latest reports should not fail: %v", err)
+	}
+}
+
+func TestReconcileCreatesOneBaselineWithoutTorrents(t *testing.T) {
+	service, _, _ := testService(t)
+	service.now = func() time.Time { return time.Date(2026, 9, 2, 1, 15, 0, 0, time.UTC) }
+	service.reconcile(context.Background())
+	service.now = func() time.Time { return time.Date(2026, 9, 2, 1, 16, 0, 0, time.UTC) }
+	service.reconcile(context.Background())
+	if count, err := service.repo.CountRuns(context.Background()); err != nil || count != 1 {
+		t.Fatalf("expected one baseline run without torrents, count=%d err=%v", count, err)
 	}
 }
 

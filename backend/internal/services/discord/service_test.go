@@ -2,8 +2,10 @@ package discord
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,6 +21,12 @@ import (
 const discordTestKey = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="
 
 type fakeLanguage struct{ code string }
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
 
 func (f fakeLanguage) GetSettings(context.Context) (*entities.Settings, error) {
 	return &entities.Settings{DefaultLanguage: f.code}, nil
@@ -95,6 +103,39 @@ func TestServiceStoresEncryptedDestinationsAndPreservesURLOnUpdate(t *testing.T)
 	}
 	if values, err := service.List(ctx); err != nil || len(values) != 0 {
 		t.Fatalf("deleted integration remained: %#v err=%v", values, err)
+	}
+}
+
+func TestServiceCreatesDisabledFilteredDestination(t *testing.T) {
+	service, ctx, cancel := testDiscordService(t)
+	defer cancel()
+	created, err := service.Create(ctx, Input{Name: "Paused reports", WebhookURL: "https://discord.com/api/webhooks/123/token", Enabled: false, AllEvents: false, EventTypes: []string{constants.EventTypeTransferReportDaily}})
+	if err != nil {
+		t.Fatalf("create disabled destination: %v", err)
+	}
+	if created.Enabled || created.AllEvents {
+		t.Fatalf("explicit false values were not persisted: %#v", created)
+	}
+}
+
+func TestTransportFailureDoesNotPersistWebhookToken(t *testing.T) {
+	service, ctx, cancel := testDiscordService(t)
+	defer cancel()
+	service.maxRetries = 1
+	service.client = &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("connection refused")
+	})}
+	id := uuid.New()
+	webhookURL := "https://discord.com/api/webhooks/123/secret-token"
+	if err := service.deliverNow(ctx, id, webhookURL, &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTorrentCompleted, CreatedAt: time.Now()}); err == nil {
+		t.Fatal("expected transport failure")
+	}
+	history, total, err := service.History(ctx, id, 10, 0)
+	if err != nil || total != 1 {
+		t.Fatalf("history: %#v total=%d err=%v", history, total, err)
+	}
+	if history[0].Error != "discord request failed" || strings.Contains(history[0].Error, "secret-token") {
+		t.Fatalf("webhook token leaked in history: %q", history[0].Error)
 	}
 }
 

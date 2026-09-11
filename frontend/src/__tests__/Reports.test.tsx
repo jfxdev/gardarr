@@ -36,4 +36,12 @@ describe('ReportsPage', () => {
     expect(await screen.findAllByText('No report generated yet.')).toHaveLength(2)
     expect(toast.error).toHaveBeenCalledWith('Could not load transfer reports.')
   })
+
+  it('formats report dates in the report timezone', async () => {
+    const formatter = vi.spyOn(Intl, 'DateTimeFormat')
+    render(<ReportsPage />)
+    await screen.findByText('Alpha')
+    expect(formatter.mock.calls.some(([, options]) => options?.timeZone === 'America/Sao_Paulo')).toBe(true)
+    formatter.mockRestore()
+  })
 })

@@ -34,16 +34,35 @@ func NewRepository(db *database.Database) *Repository {
 
 // CreateEvent creates a new event in the database
 func (r *Repository) CreateEvent(ctx context.Context, event *entities.Event) error {
+	model, err := eventModel(event)
+	if err != nil {
+		return err
+	}
+	return r.db.DB.WithContext(ctx).Create(model).Error
+}
+
+// CreateEventIfAbsent stores an event once by UUID and reports whether this
+// call created it. Callers can safely retry after a transient database error.
+func (r *Repository) CreateEventIfAbsent(ctx context.Context, event *entities.Event) (bool, error) {
+	model, err := eventModel(event)
+	if err != nil {
+		return false, err
+	}
+	result := r.db.DB.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(model)
+	return result.RowsAffected > 0, result.Error
+}
+
+func eventModel(event *entities.Event) (*models.Event, error) {
 	var metadataJSON string
 	if len(event.Metadata) > 0 {
 		data, err := json.Marshal(event.Metadata)
 		if err != nil {
-			return fmt.Errorf("marshal event metadata: %w", err)
+			return nil, fmt.Errorf("marshal event metadata: %w", err)
 		}
 		metadataJSON = string(data)
 	}
 
-	model := &models.Event{
+	return &models.Event{
 		UUID:      event.UUID,
 		WorkerID:  event.WorkerID,
 		Type:      string(event.Type),
@@ -52,9 +71,7 @@ func (r *Repository) CreateEvent(ctx context.Context, event *entities.Event) err
 		NewValue:  event.NewValue,
 		Metadata:  metadataJSON,
 		CreatedAt: event.CreatedAt,
-	}
-
-	return r.db.DB.WithContext(ctx).Create(model).Error
+	}, nil
 }
 
 // ListEvents retrieves events with optional filters. eventTypes, when

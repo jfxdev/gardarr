@@ -77,6 +77,23 @@ func (r *Repository) CountSnapshots(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+// CountRuns returns the total number of persisted snapshot runs.
+func (r *Repository) CountRuns(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.DB.WithContext(ctx).Model(&models.TransferSnapshotRun{}).Count(&count).Error
+	return count, err
+}
+
+// CountRunsBetween returns runs collected within the half-open report period.
+func (r *Repository) CountRunsBetween(ctx context.Context, start, end time.Time) (int64, error) {
+	var count int64
+	err := r.db.DB.WithContext(ctx).
+		Model(&models.TransferSnapshotRun{}).
+		Where("captured_at > ? AND captured_at <= ?", start.UTC(), end.UTC()).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *Repository) CreateRun(ctx context.Context, run *entities.TransferSnapshotRun, snapshots []entities.TransferSnapshot) error {
 	errorsJSON, err := json.Marshal(run.WorkerErrors)
 	if err != nil {
@@ -116,7 +133,7 @@ func (r *Repository) ListSnapshotsUntil(ctx context.Context, until time.Time) ([
 
 func (r *Repository) ListRunErrors(ctx context.Context, start, end time.Time) ([]map[string]string, error) {
 	var rows []models.TransferSnapshotRun
-	if err := r.db.DB.WithContext(ctx).Where("captured_at >= ? AND captured_at <= ?", start.UTC(), end.UTC()).Find(&rows).Error; err != nil {
+	if err := r.db.DB.WithContext(ctx).Where("captured_at > ? AND captured_at <= ?", start.UTC(), end.UTC()).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]string, 0, len(rows))

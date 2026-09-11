@@ -187,6 +187,11 @@ func Run(cmd *cobra.Command, args []string) error {
 	bandwidthSchedulerSvc := bandwidthscheduler.NewService(db, workerSvc, settingsSvc, eventSvc)
 	bandwidthSchedulerSvc.Start(ctx)
 
+	// Subscribe Discord before report reconciliation: report events are
+	// broadcast live and are not replayed to subscribers created afterwards.
+	discordSvc := discordService.NewService(eventSvc.Subscribe(0), db, cryptoSvc, settingsSvc)
+	discordSvc.Start(ctx)
+
 	transferReportSvc := transferreport.NewService(db, workerSvc, settingsSvc, eventSvc)
 	transferReportSvc.Start(ctx)
 
@@ -200,9 +205,6 @@ func Run(cmd *cobra.Command, args []string) error {
 	// Integration service - consumes events in real-time
 	integrationSvc := integration.NewService(eventChan, db)
 	integrationSvc.Start(ctx)
-
-	discordSvc := discordService.NewService(eventSvc.Subscribe(0), db, cryptoSvc, settingsSvc)
-	discordSvc.Start(ctx)
 
 	metaSvc, err := metadata.NewService(
 		db,

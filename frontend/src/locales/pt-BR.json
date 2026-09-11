@@ -1740,7 +1740,9 @@
       "removed": "Removido",
       "completed": "Completo",
       "workerOffline": "Worker offline",
-      "workerRecovered": "Worker recuperado"
+      "workerRecovered": "Worker recuperado",
+      "transferReportDaily": "Relatório diário de transferências",
+      "transferReportWeekly": "Relatório semanal de transferências"
     },
     "time": {
       "justNow": "Agora mesmo",
@@ -1759,7 +1761,8 @@
       "time": "Hora",
       "worker": "Worker",
       "subject": "Assunto",
-      "schedule": "Agendamento"
+      "schedule": "Agendamento",
+      "report": "Relatório"
     },
     "groups": {
       "torrent": "Eventos de Torrent",

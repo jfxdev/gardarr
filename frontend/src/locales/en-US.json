@@ -1684,7 +1684,9 @@
       "removed": "Removed",
       "completed": "Completed",
       "workerOffline": "Worker offline",
-      "workerRecovered": "Worker recovered"
+      "workerRecovered": "Worker recovered",
+      "transferReportDaily": "Daily transfer report",
+      "transferReportWeekly": "Weekly transfer report"
     },
     "time": {
       "justNow": "Just now",
@@ -1703,7 +1705,8 @@
       "time": "Time",
       "worker": "Worker",
       "subject": "Subject",
-      "schedule": "Schedule"
+      "schedule": "Schedule",
+      "report": "Report"
     },
     "groups": {
       "torrent": "Torrent events",

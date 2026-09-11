@@ -11,8 +11,8 @@ type DiscordIntegration struct {
 	UUID                uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name                string    `gorm:"size:100;not null"`
 	EncryptedWebhookURL string    `gorm:"type:text;not null"`
-	Enabled             bool      `gorm:"not null;default:true"`
-	AllEvents           bool      `gorm:"not null;default:true"`
+	Enabled             bool      `gorm:"not null"`
+	AllEvents           bool      `gorm:"not null"`
 	EventTypes          string    `gorm:"type:text"`
 	StatusFilter        string    `gorm:"type:text"`
 	CategoryFilter      string    `gorm:"type:text"`
