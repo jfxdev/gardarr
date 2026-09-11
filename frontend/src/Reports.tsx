@@ -63,9 +63,26 @@ function discordTimestamp(value: string): string {
   return date.toISOString().replace('.000Z', 'Z')
 }
 
-function discordRanking(items: TransferRankItem[], empty: string): string {
-  if (items.length === 0) return empty
-  return items.map((item) => `${item.rank}. ${item.name.slice(0, 120)} — ${discordBytes(item.bytes)}`).join('\n')
+function discordRankingMarker(rank: number): string {
+  if (rank === 1) return '🥇'
+  if (rank === 2) return '🥈'
+  if (rank === 3) return '🥉'
+  return '•'
+}
+
+function truncateDiscordRankingName(name: string): string {
+  const maxCharacters = 50
+  const characters = Array.from(name)
+  return characters.length <= maxCharacters ? name : `${characters.slice(0, maxCharacters - 3).join('')}...`
+}
+
+function DiscordRanking({ items, empty }: { items: TransferRankItem[]; empty: string }) {
+  if (items.length === 0) return <>{empty}</>
+  return (
+    <div className="space-y-3">
+      {items.map((item) => <p key={item.hash}>{discordRankingMarker(item.rank)} {truncateDiscordRankingName(item.name || item.hash)} — <strong>{discordBytes(item.bytes)}</strong></p>)}
+    </div>
+  )
 }
 
 function DiscordReportPreview({ report, language, inProgress = false }: { report: TransferReport; language: string; inProgress?: boolean }) {
@@ -89,8 +106,8 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
         <dl className="mt-3 grid gap-3 text-sm">
           <div><dt className="font-semibold text-white">Period</dt><dd className="mt-1 break-all text-[#dbdee1]">{discordTimestamp(report.period_start)} → {discordTimestamp(report.period_end)}</dd></div>
           <div><dt className="font-semibold text-white">Coverage</dt><dd className="mt-1 text-[#dbdee1]">{report.coverage}</dd></div>
-          <div><dt className="font-semibold text-white">Upload</dt><dd className="mt-1 whitespace-pre-line text-[#dbdee1]">{discordRanking(report.upload, empty)}</dd></div>
-          <div><dt className="font-semibold text-white">Download</dt><dd className="mt-1 whitespace-pre-line text-[#dbdee1]">{discordRanking(report.download, empty)}</dd></div>
+          <div><dt className="font-semibold text-white">Upload</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.upload} empty={empty} /></dd></div>
+          <div><dt className="font-semibold text-white">Download</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.download} empty={empty} /></dd></div>
           {report.unavailable_workers.length > 0 && <div><dt className="font-semibold text-white">Unavailable workers</dt><dd className="mt-1 break-all text-[#dbdee1]">[{report.unavailable_workers.join(' ')}]</dd></div>}
         </dl>
         <p className="mt-3 text-xs text-[#b5bac1]">{discordTimestamp(report.generated_at)}</p>

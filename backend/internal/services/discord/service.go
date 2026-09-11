@@ -589,10 +589,45 @@ func rankingText(value interface{}, language string) string {
 		return empty
 	}
 	lines := make([]string, 0, len(items))
+	length := 0
 	for _, item := range items {
-		lines = append(lines, fmt.Sprintf("%d. %s — %s", item.Rank, truncate(item.Name, 120), humanBytes(item.Bytes)))
+		line := fmt.Sprintf("%s %s — **%s**", rankingMarker(item.Rank), truncateRankingName(item.Name), humanBytes(item.Bytes))
+		separatorLength := 0
+		if len(lines) > 0 {
+			separatorLength = 2
+		}
+		if length+separatorLength+len([]rune(line)) > 1024 {
+			break
+		}
+		lines = append(lines, line)
+		length += separatorLength + len([]rune(line))
 	}
-	return truncate(strings.Join(lines, "\n"), 1024)
+	if len(lines) == 0 {
+		return empty
+	}
+	return strings.Join(lines, "\n\n")
+}
+
+func rankingMarker(rank int) string {
+	switch rank {
+	case 1:
+		return "🥇"
+	case 2:
+		return "🥈"
+	case 3:
+		return "🥉"
+	default:
+		return "•"
+	}
+}
+
+func truncateRankingName(value string) string {
+	const maxRunes = 50
+	runes := []rune(value)
+	if len(runes) <= maxRunes {
+		return value
+	}
+	return string(runes[:maxRunes-3]) + "..."
 }
 func humanBytes(value int64) string {
 	units := []string{"B", "KB", "MB", "GB", "TB"}

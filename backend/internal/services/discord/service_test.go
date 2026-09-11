@@ -74,6 +74,21 @@ func TestBuildPayloadRendersEmptyReportPlaceholder(t *testing.T) {
 	}
 }
 
+func TestRankingTextUsesMedalsCompactNamesAndBoldBytes(t *testing.T) {
+	longName := strings.Repeat("a", 60)
+	value := []entities.TransferRankItem{
+		{Rank: 1, Name: "Gold", Bytes: 1024},
+		{Rank: 2, Name: "Silver", Bytes: 2048},
+		{Rank: 3, Name: "Bronze", Bytes: 3072},
+		{Rank: 4, Name: longName, Bytes: 4096},
+	}
+	got := rankingText(value, "en-US")
+	want := "🥇 Gold — **1.0 KB**\n\n🥈 Silver — **2.0 KB**\n\n🥉 Bronze — **3.0 KB**\n\n• " + strings.Repeat("a", 47) + "... — **4.0 KB**"
+	if got != want {
+		t.Fatalf("rankingText() = %q, want %q", got, want)
+	}
+}
+
 func TestServiceStoresEncryptedDestinationsAndPreservesURLOnUpdate(t *testing.T) {
 	service, ctx, cancel := testDiscordService(t)
 	defer cancel()

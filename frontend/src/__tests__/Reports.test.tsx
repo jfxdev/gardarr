@@ -54,7 +54,7 @@ describe('ReportsPage', () => {
     render(<ReportsPage />)
     const preview = await screen.findByTestId('discord-preview-daily')
     expect(preview).toHaveTextContent('Gardarr · Daily transfer report')
-    expect(preview).toHaveTextContent('1. Alpha — 2.0 KB')
+    expect(preview).toHaveTextContent('🥇 Alpha — 2.0 KB')
     expect(preview).toHaveTextContent('2026-09-01T00:00:00Z → 2026-09-02T00:00:00Z')
   })
 
@@ -69,7 +69,7 @@ describe('ReportsPage', () => {
     expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()
     expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
-    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('1. Alpha — 2.0 KB')
+    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Alpha — 2.0 KB')
   })
 
   it('captures a snapshot and displays ranking tables', async () => {
