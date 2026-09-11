@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Camera, Download, Save, Settings2, Upload } from 'lucide-react'
+import { AlertTriangle, BarChart3, Bell, Camera, Download, Save, Settings2, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -126,7 +126,7 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
   )
 }
 
-function ReportCard({ title, report, discordLanguage, showDiscordPreview = true, discordPreviewInProgress = false, highlightTopRanks = false }: { title: string; report: TransferReport | null; discordLanguage: string; showDiscordPreview?: boolean; discordPreviewInProgress?: boolean; highlightTopRanks?: boolean }) {
+function ReportCard({ title, report, highlightTopRanks = false }: { title: string; report: TransferReport | null; highlightTopRanks?: boolean }) {
   const { t, i18n } = useTranslation()
   if (!report) {
     return <Card><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{t('reports.noReport', 'No report generated yet.')}</CardDescription></CardHeader></Card>
@@ -151,7 +151,6 @@ function ReportCard({ title, report, discordLanguage, showDiscordPreview = true,
           <Ranking title={t('reports.upload', 'Upload')} icon={Upload} items={report.upload} empty={t('reports.noUpload', 'No upload movement available for this period.')} highlightTopRanks={highlightTopRanks} />
           <Ranking title={t('reports.download', 'Download')} icon={Download} items={report.download} empty={t('reports.noDownload', 'No download movement available for this period.')} highlightTopRanks={highlightTopRanks} />
         </div>
-        {showDiscordPreview && <DiscordReportPreview report={report} language={discordLanguage} inProgress={discordPreviewInProgress} />}
       </CardContent>
     </Card>
   )
@@ -166,6 +165,7 @@ export default function ReportsPage() {
   const [saving, setSaving] = useState(false)
   const [capturing, setCapturing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [notificationPreviewOpen, setNotificationPreviewOpen] = useState(false)
   const [discordLanguage, setDiscordLanguage] = useState(i18n.language)
 
   const load = useCallback(async () => {
@@ -226,6 +226,7 @@ export default function ReportsPage() {
         <div className="flex-1"><h1 className="text-2xl font-bold tracking-tight">{t('reports.title', 'Transfer reports')}</h1><p className="text-sm text-muted-foreground">{t('reports.subtitle', 'Periodic upload and download rankings from qBittorrent counters.')}</p></div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { void captureSnapshot() }} disabled={capturing || loading}><Camera className="mr-2 h-4 w-4" />{capturing ? t('reports.capturingSnapshot', 'Capturing…') : t('reports.captureSnapshot', 'Capture snapshot now')}</Button>
+          <Button variant="outline" onClick={() => { setNotificationPreviewOpen(true) }} disabled={loading}><Bell className="mr-2 h-4 w-4" />{t('reports.notificationPreview', 'Notification Preview')}</Button>
           <Button variant="outline" onClick={() => { setSettingsOpen(true) }} disabled={loading}><Settings2 className="mr-2 h-4 w-4" />{t('reports.configure', 'Configure')}</Button>
         </div>
       </div>
@@ -243,6 +244,23 @@ export default function ReportsPage() {
           <DialogFooter><Button variant="outline" onClick={() => { setSettingsOpen(false) }}>{t('common.cancel', 'Cancel')}</Button><Button onClick={() => { void save() }} disabled={saving || loading}><Save className="mr-2 h-4 w-4" />{saving ? t('common.saving', 'Saving…') : t('reports.save', 'Save schedule')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={notificationPreviewOpen} onOpenChange={setNotificationPreviewOpen}>
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto">
+          <DialogHeader><DialogTitle>{t('reports.notificationPreview', 'Notification Preview')}</DialogTitle><DialogDescription>{t('reports.notificationPreviewDescription', 'Preview the Discord notification format for current and completed reports.')}</DialogDescription></DialogHeader>
+          <Tabs defaultValue="current-daily">
+            <TabsList className="h-auto flex-wrap justify-start" aria-label={t('reports.notificationPreview', 'Notification Preview')}>
+              <TabsTrigger value="current-daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
+              <TabsTrigger value="current-weekly">{t('reports.currentWeekly', 'Weekly')}</TabsTrigger>
+              <TabsTrigger value="daily">{t('reports.daily', 'Daily report')}</TabsTrigger>
+              <TabsTrigger value="weekly">{t('reports.weekly', 'Weekly report')}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="current-daily">{currentReports.daily ? <DiscordReportPreview report={currentReports.daily} language={discordLanguage} inProgress /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
+            <TabsContent value="current-weekly">{currentReports.weekly ? <DiscordReportPreview report={currentReports.weekly} language={discordLanguage} inProgress /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
+            <TabsContent value="daily">{reports.daily ? <DiscordReportPreview report={reports.daily} language={discordLanguage} /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
+            <TabsContent value="weekly">{reports.weekly ? <DiscordReportPreview report={reports.weekly} language={discordLanguage} /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
       {loading ? <p className="text-sm text-muted-foreground">{t('common.loading', 'Loading…')}</p> : (
         <div className="space-y-8">
           <section className="space-y-4">
@@ -252,13 +270,13 @@ export default function ReportsPage() {
                 <TabsTrigger value="daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
                 <TabsTrigger value="weekly">{t('reports.currentWeekly', 'Weekly')}</TabsTrigger>
               </TabsList>
-              <TabsContent value="daily"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress highlightTopRanks /></TabsContent>
-              <TabsContent value="weekly"><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress highlightTopRanks /></TabsContent>
+              <TabsContent value="daily"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} highlightTopRanks /></TabsContent>
+              <TabsContent value="weekly"><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} highlightTopRanks /></TabsContent>
             </Tabs>
           </section>
           <section className="space-y-4">
             <div><h2 className="text-lg font-semibold">{t('reports.completed', 'Last completed reports')}</h2><p className="text-sm text-muted-foreground">{t('reports.completedDescription', 'These are the reports retained in history and sent to matching Discord destinations.')}</p></div>
-            <div className="grid gap-6 xl:grid-cols-2"><ReportCard title={t('reports.daily', 'Daily report')} report={reports.daily} discordLanguage={discordLanguage} /><ReportCard title={t('reports.weekly', 'Weekly report')} report={reports.weekly} discordLanguage={discordLanguage} /></div>
+            <div className="grid gap-6 xl:grid-cols-2"><ReportCard title={t('reports.daily', 'Daily report')} report={reports.daily} /><ReportCard title={t('reports.weekly', 'Weekly report')} report={reports.weekly} /></div>
           </section>
         </div>
       )}

@@ -1795,6 +1795,8 @@
     "transferred": "Transferido",
     "discordPreview": "Prévia do Discord",
     "discordPreviewCurrent": "Prévia do Discord se enviado agora",
+    "notificationPreview": "Prévia de notificações",
+    "notificationPreviewDescription": "Veja o formato da notificação do Discord para os relatórios atuais e concluídos.",
     "current": "Rankings atuais dos snapshots",
     "configure": "Configurar",
     "currentPeriod": "Período do relatório atual",

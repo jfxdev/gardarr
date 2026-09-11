@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportsPage from '@/Reports'
 
@@ -53,7 +54,12 @@ describe('ReportsPage', () => {
   })
 
   it('previews the Discord embed for each available report', async () => {
+    const user = userEvent.setup()
     render(<ReportsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('Notification Preview')
+    await user.click(screen.getByRole('tab', { name: 'Daily report' }))
+    expect(screen.getByRole('tab', { name: 'Daily report' })).toHaveAttribute('data-state', 'active')
     const preview = await screen.findByTestId('discord-preview-daily')
     expect(preview).toHaveTextContent('Gardarr · Daily transfer report')
     expect(preview).toHaveTextContent('🥇 Alpha — 2.0 KB')
@@ -62,8 +68,11 @@ describe('ReportsPage', () => {
   })
 
   it('uses the server language used by Discord for the preview', async () => {
+    const user = userEvent.setup()
     getLanguage.mockResolvedValue({ data: { default_language: 'pt-BR' } })
     render(<ReportsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
+    await user.click(screen.getByRole('tab', { name: 'Daily report' }))
     expect(await screen.findByTestId('discord-preview-daily')).toHaveTextContent('Gardarr · Relatório diário')
   })
 
@@ -73,6 +82,7 @@ describe('ReportsPage', () => {
     expect(screen.getByRole('tab', { name: 'Daily' })).toHaveAttribute('data-state', 'active')
     expect(screen.getByRole('tab', { name: 'Weekly' })).toBeInTheDocument()
     expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Notification Preview' }))
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Current 1 — 1.0 KB')
     expect(screen.getByTestId('current-ranking-row-1')).toHaveClass('[&>td]:bg-primary/25')

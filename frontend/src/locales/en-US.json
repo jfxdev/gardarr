@@ -1739,6 +1739,8 @@
     "transferred": "Transferred",
     "discordPreview": "Discord preview",
     "discordPreviewCurrent": "Discord preview if sent now",
+    "notificationPreview": "Notification Preview",
+    "notificationPreviewDescription": "Preview the Discord notification format for current and completed reports.",
     "current": "Current snapshot rankings",
     "configure": "Configure",
     "currentPeriod": "Current report period",
