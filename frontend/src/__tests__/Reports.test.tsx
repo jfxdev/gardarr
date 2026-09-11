@@ -75,8 +75,8 @@ describe('ReportsPage', () => {
     expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Current 1 — 1.0 KB')
-    expect(screen.getByTestId('current-ranking-row-1')).toHaveClass('bg-primary/25')
-    expect(screen.getByTestId('current-ranking-row-5')).toHaveClass('bg-primary/5')
+    expect(screen.getByTestId('current-ranking-row-1')).toHaveClass('[&>td]:bg-primary/25')
+    expect(screen.getByTestId('current-ranking-row-5')).toHaveClass('[&>td]:bg-primary/5')
   })
 
   it('captures a snapshot and displays ranking tables', async () => {

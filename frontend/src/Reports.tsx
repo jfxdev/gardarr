@@ -19,7 +19,7 @@ const initialSettings: TransferReportSettings = {
   enabled: true, snapshots_per_day: 4, daily_report_time: '00:05', weekly_report_day: 1, weekly_report_time: '00:10', top_n: 10,
 }
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const currentRankBackgrounds = ['bg-primary/25', 'bg-primary/20', 'bg-primary/15', 'bg-primary/10', 'bg-primary/5']
+const currentRankBackgrounds = ['[&>td]:bg-primary/25', '[&>td]:bg-primary/20', '[&>td]:bg-primary/15', '[&>td]:bg-primary/10', '[&>td]:bg-primary/5']
 
 function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }: { title: string; icon: typeof Upload; items: TransferRankItem[]; empty: string; highlightTopRanks?: boolean }) {
   const { t } = useTranslation()
@@ -27,24 +27,22 @@ function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }:
     <div className="space-y-3 rounded-lg border p-4">
       <div className="flex items-center gap-2 font-medium"><Icon className="h-4 w-4 text-primary" />{title}</div>
       {items.length === 0 ? <p className="text-sm text-muted-foreground">{empty}</p> : (
-        <div className="overflow-hidden rounded-md border">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">{title}</caption>
-              <thead className="border-b text-xs text-muted-foreground">
-                <tr><th scope="col" className="px-3 pb-2 font-medium">{t('reports.rank', 'Rank')}</th><th scope="col" className="px-3 pb-2 font-medium">{t('reports.name', 'Torrent')}</th><th scope="col" className="px-3 pb-2 text-right font-medium">{t('reports.transferred', 'Transferred')}</th></tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={item.hash} data-testid={highlightTopRanks && index < currentRankBackgrounds.length ? `current-ranking-row-${index + 1}` : undefined} className={`border-b last:border-0 ${highlightTopRanks && index < currentRankBackgrounds.length ? currentRankBackgrounds[index] : ''}`}>
-                    <td className="px-3 py-2 text-muted-foreground">{item.rank}.</td>
-                    <td className="min-w-0 px-3 py-2" title={item.name}><span className="block max-w-[16rem] truncate">{item.name || item.hash}</span></td>
-                    <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{formatBytes(item.bytes)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">{title}</caption>
+            <thead className="border-b text-xs text-muted-foreground">
+              <tr><th scope="col" className="px-3 pb-2 font-medium">{t('reports.rank', 'Rank')}</th><th scope="col" className="px-3 pb-2 font-medium">{t('reports.name', 'Torrent')}</th><th scope="col" className="px-3 pb-2 text-right font-medium">{t('reports.transferred', 'Transferred')}</th></tr>
+            </thead>
+            <tbody className="[&>tr>td:first-child]:border-l [&>tr>td:last-child]:border-r [&>tr:first-child>td]:border-t [&>tr:first-child>td:first-child]:rounded-tl-md [&>tr:first-child>td:last-child]:rounded-tr-md [&>tr:last-child>td]:border-b [&>tr:last-child>td:first-child]:rounded-bl-md [&>tr:last-child>td:last-child]:rounded-br-md">
+              {items.map((item, index) => (
+                <tr key={item.hash} data-testid={highlightTopRanks && index < currentRankBackgrounds.length ? `current-ranking-row-${index + 1}` : undefined} className={`border-b last:border-0 ${highlightTopRanks && index < currentRankBackgrounds.length ? currentRankBackgrounds[index] : ''}`}>
+                  <td className="px-3 py-2 text-muted-foreground">{item.rank}.</td>
+                  <td className="min-w-0 px-3 py-2" title={item.name}><span className="block max-w-[16rem] truncate">{item.name || item.hash}</span></td>
+                  <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{formatBytes(item.bytes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
