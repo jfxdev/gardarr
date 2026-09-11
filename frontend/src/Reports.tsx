@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { transferReportsService } from '@/services/transferReports'
 import { settingsService } from '@/services/settings'
 import type { LatestTransferReports, TransferRankItem, TransferReport, TransferReportSettings } from '@/types/transferReports'
@@ -230,7 +231,14 @@ export default function ReportsPage() {
         <div className="space-y-8">
           <section className="space-y-4">
             <div><h2 className="text-lg font-semibold">{t('reports.current', 'Current snapshot rankings')}</h2><p className="text-sm text-muted-foreground">{t('reports.currentDescription', 'Live values calculated from stored snapshots. Discord is not required.')}</p><p className="mt-1 text-sm text-muted-foreground">{t('reports.baselineHint', 'The first snapshot establishes a baseline; capture another after transfer activity to calculate movement.')}</p></div>
-            <div className="grid gap-6 xl:grid-cols-2"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress /><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress /></div>
+            <Tabs defaultValue="daily">
+              <TabsList aria-label={t('reports.currentPeriod', 'Current report period')}>
+                <TabsTrigger value="daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
+                <TabsTrigger value="weekly">{t('reports.currentWeekly', 'Weekly')}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="daily"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress /></TabsContent>
+              <TabsContent value="weekly"><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress /></TabsContent>
+            </Tabs>
           </section>
           <section className="space-y-4">
             <div><h2 className="text-lg font-semibold">{t('reports.completed', 'Last completed reports')}</h2><p className="text-sm text-muted-foreground">{t('reports.completedDescription', 'These are the reports retained in history and sent to matching Discord destinations.')}</p></div>
