@@ -19,8 +19,9 @@ const initialSettings: TransferReportSettings = {
   enabled: true, snapshots_per_day: 4, daily_report_time: '00:05', weekly_report_day: 1, weekly_report_time: '00:10', top_n: 10,
 }
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const currentRankBackgrounds = ['bg-primary/25', 'bg-primary/20', 'bg-primary/15', 'bg-primary/10', 'bg-primary/5']
 
-function Ranking({ title, icon: Icon, items, empty }: { title: string; icon: typeof Upload; items: TransferRankItem[]; empty: string }) {
+function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }: { title: string; icon: typeof Upload; items: TransferRankItem[]; empty: string; highlightTopRanks?: boolean }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-3 rounded-lg border p-4">
@@ -33,8 +34,8 @@ function Ranking({ title, icon: Icon, items, empty }: { title: string; icon: typ
               <tr><th scope="col" className="pb-2 pr-2 font-medium">{t('reports.rank', 'Rank')}</th><th scope="col" className="pb-2 font-medium">{t('reports.name', 'Torrent')}</th><th scope="col" className="pb-2 text-right font-medium">{t('reports.transferred', 'Transferred')}</th></tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.hash} className="border-b last:border-0">
+              {items.map((item, index) => (
+                <tr key={item.hash} data-testid={highlightTopRanks && index < currentRankBackgrounds.length ? `current-ranking-row-${index + 1}` : undefined} className={`border-b last:border-0 ${highlightTopRanks && index < currentRankBackgrounds.length ? currentRankBackgrounds[index] : ''}`}>
                   <td className="py-2 pr-2 text-muted-foreground">{item.rank}.</td>
                   <td className="min-w-0 py-2" title={item.name}><span className="block max-w-[16rem] truncate">{item.name || item.hash}</span></td>
                   <td className="py-2 text-right font-medium whitespace-nowrap">{formatBytes(item.bytes)}</td>
@@ -116,7 +117,7 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
   )
 }
 
-function ReportCard({ title, report, discordLanguage, showDiscordPreview = true, discordPreviewInProgress = false }: { title: string; report: TransferReport | null; discordLanguage: string; showDiscordPreview?: boolean; discordPreviewInProgress?: boolean }) {
+function ReportCard({ title, report, discordLanguage, showDiscordPreview = true, discordPreviewInProgress = false, highlightTopRanks = false }: { title: string; report: TransferReport | null; discordLanguage: string; showDiscordPreview?: boolean; discordPreviewInProgress?: boolean; highlightTopRanks?: boolean }) {
   const { t, i18n } = useTranslation()
   if (!report) {
     return <Card><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{t('reports.noReport', 'No report generated yet.')}</CardDescription></CardHeader></Card>
@@ -138,8 +139,8 @@ function ReportCard({ title, report, discordLanguage, showDiscordPreview = true,
       <CardContent className="space-y-3">
         {report.unavailable_workers.length > 0 && <p className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400"><AlertTriangle className="h-4 w-4" />{t('reports.partial', 'Some workers were unavailable.')}</p>}
         <div className="grid gap-3 lg:grid-cols-2">
-          <Ranking title={t('reports.upload', 'Upload')} icon={Upload} items={report.upload} empty={t('reports.noUpload', 'No upload movement available for this period.')} />
-          <Ranking title={t('reports.download', 'Download')} icon={Download} items={report.download} empty={t('reports.noDownload', 'No download movement available for this period.')} />
+          <Ranking title={t('reports.upload', 'Upload')} icon={Upload} items={report.upload} empty={t('reports.noUpload', 'No upload movement available for this period.')} highlightTopRanks={highlightTopRanks} />
+          <Ranking title={t('reports.download', 'Download')} icon={Download} items={report.download} empty={t('reports.noDownload', 'No download movement available for this period.')} highlightTopRanks={highlightTopRanks} />
         </div>
         {showDiscordPreview && <DiscordReportPreview report={report} language={discordLanguage} inProgress={discordPreviewInProgress} />}
       </CardContent>
@@ -242,8 +243,8 @@ export default function ReportsPage() {
                 <TabsTrigger value="daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
                 <TabsTrigger value="weekly">{t('reports.currentWeekly', 'Weekly')}</TabsTrigger>
               </TabsList>
-              <TabsContent value="daily"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress /></TabsContent>
-              <TabsContent value="weekly"><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress /></TabsContent>
+              <TabsContent value="daily"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress highlightTopRanks /></TabsContent>
+              <TabsContent value="weekly"><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress highlightTopRanks /></TabsContent>
             </Tabs>
           </section>
           <section className="space-y-4">

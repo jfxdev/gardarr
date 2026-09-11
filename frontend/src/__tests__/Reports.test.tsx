@@ -17,7 +17,7 @@ describe('ReportsPage', () => {
     vi.clearAllMocks()
     getSettings.mockResolvedValue({ data: settings })
     getLatest.mockResolvedValue({ data: { daily: report, weekly: null } })
-    getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete' }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', coverage: 'complete' } } })
+    getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete', upload: [1, 2, 3, 4, 5].map((rank) => ({ rank, name: `Current ${rank}`, hash: `current-${rank}`, bytes: rank * 1024 })) }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', coverage: 'complete' } } })
     updateSettings.mockResolvedValue({ data: { ...settings, snapshots_per_day: 6 } })
     captureSnapshot.mockResolvedValue({ data: null })
     getLanguage.mockResolvedValue({ data: { default_language: 'en-US' } })
@@ -74,7 +74,9 @@ describe('ReportsPage', () => {
     expect(screen.getByRole('tab', { name: 'Weekly' })).toBeInTheDocument()
     expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
-    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Alpha — 2.0 KB')
+    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Current 1 — 1.0 KB')
+    expect(screen.getByTestId('current-ranking-row-1')).toHaveClass('bg-primary/25')
+    expect(screen.getByTestId('current-ranking-row-5')).toHaveClass('bg-primary/5')
   })
 
   it('captures a snapshot and displays ranking tables', async () => {
