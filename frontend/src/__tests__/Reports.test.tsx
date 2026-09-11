@@ -68,6 +68,8 @@ describe('ReportsPage', () => {
     render(<ReportsPage />)
     expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()
     expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
+    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
+    expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('1. Alpha — 2.0 KB')
   })
 
   it('captures a snapshot and displays ranking tables', async () => {

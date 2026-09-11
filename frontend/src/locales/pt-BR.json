@@ -1794,6 +1794,7 @@
     "name": "Torrent",
     "transferred": "Transferido",
     "discordPreview": "Prévia do Discord",
+    "discordPreviewCurrent": "Prévia do Discord se enviado agora",
     "current": "Rankings atuais dos snapshots",
     "currentDescription": "Valores em tempo real calculados a partir dos snapshots armazenados. O Discord não é necessário.",
     "baselineHint": "O primeiro snapshot estabelece a base; gere outro após movimentação para calcular as transferências.",

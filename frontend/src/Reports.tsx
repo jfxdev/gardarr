@@ -68,7 +68,7 @@ function discordRanking(items: TransferRankItem[], empty: string): string {
   return items.map((item) => `${item.rank}. ${item.name.slice(0, 120)} — ${discordBytes(item.bytes)}`).join('\n')
 }
 
-function DiscordReportPreview({ report, language }: { report: TransferReport; language: string }) {
+function DiscordReportPreview({ report, language, inProgress = false }: { report: TransferReport; language: string; inProgress?: boolean }) {
   const { t } = useTranslation()
   const portuguese = language === 'pt-BR'
   const daily = report.period_type === 'daily'
@@ -76,13 +76,13 @@ function DiscordReportPreview({ report, language }: { report: TransferReport; la
     ? (portuguese ? 'Gardarr · Relatório diário' : 'Gardarr · Daily transfer report')
     : (portuguese ? 'Gardarr · Relatório semanal' : 'Gardarr · Weekly transfer report')
   const description = daily
-    ? (portuguese ? 'Ranking de transferências do dia encerrado.' : 'Top transfer activity for the completed day.')
-    : (portuguese ? 'Ranking de transferências da semana encerrada.' : 'Top transfer activity for the completed week.')
+    ? (inProgress ? (portuguese ? 'Ranking de transferências até agora hoje.' : 'Top transfer activity so far today.') : (portuguese ? 'Ranking de transferências do dia encerrado.' : 'Top transfer activity for the completed day.'))
+    : (inProgress ? (portuguese ? 'Ranking de transferências até agora nesta semana.' : 'Top transfer activity so far this week.') : (portuguese ? 'Ranking de transferências da semana encerrada.' : 'Top transfer activity for the completed week.'))
   const empty = portuguese ? 'Nenhuma movimentação registrada.' : 'No movement recorded.'
 
   return (
-    <section data-testid={`discord-preview-${report.period_type}`} className="rounded-md bg-[#313338] p-3 text-[#dbdee1] shadow-sm">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#b5bac1]">{t('reports.discordPreview', 'Discord preview')}</p>
+    <section data-testid={`discord-preview-${inProgress ? 'current-' : ''}${report.period_type}`} className="rounded-md bg-[#313338] p-3 text-[#dbdee1] shadow-sm">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#b5bac1]">{inProgress ? t('reports.discordPreviewCurrent', 'Discord preview if sent now') : t('reports.discordPreview', 'Discord preview')}</p>
       <div className="border-l-4 border-[#5865f2] pl-3">
         <p className="font-semibold text-white">{title}</p>
         <p className="mt-1 text-sm text-[#b5bac1]">{description}</p>
@@ -99,7 +99,7 @@ function DiscordReportPreview({ report, language }: { report: TransferReport; la
   )
 }
 
-function ReportCard({ title, report, discordLanguage, showDiscordPreview = true }: { title: string; report: TransferReport | null; discordLanguage: string; showDiscordPreview?: boolean }) {
+function ReportCard({ title, report, discordLanguage, showDiscordPreview = true, discordPreviewInProgress = false }: { title: string; report: TransferReport | null; discordLanguage: string; showDiscordPreview?: boolean; discordPreviewInProgress?: boolean }) {
   const { t, i18n } = useTranslation()
   if (!report) {
     return <Card><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{t('reports.noReport', 'No report generated yet.')}</CardDescription></CardHeader></Card>
@@ -124,7 +124,7 @@ function ReportCard({ title, report, discordLanguage, showDiscordPreview = true 
           <Ranking title={t('reports.upload', 'Upload')} icon={Upload} items={report.upload} empty={t('reports.noUpload', 'No upload movement available for this period.')} />
           <Ranking title={t('reports.download', 'Download')} icon={Download} items={report.download} empty={t('reports.noDownload', 'No download movement available for this period.')} />
         </div>
-        {showDiscordPreview && <DiscordReportPreview report={report} language={discordLanguage} />}
+        {showDiscordPreview && <DiscordReportPreview report={report} language={discordLanguage} inProgress={discordPreviewInProgress} />}
       </CardContent>
     </Card>
   )
@@ -215,7 +215,7 @@ export default function ReportsPage() {
         <div className="space-y-8">
           <section className="space-y-4">
             <div><h2 className="text-lg font-semibold">{t('reports.current', 'Current snapshot rankings')}</h2><p className="text-sm text-muted-foreground">{t('reports.currentDescription', 'Live values calculated from stored snapshots. Discord is not required.')}</p><p className="mt-1 text-sm text-muted-foreground">{t('reports.baselineHint', 'The first snapshot establishes a baseline; capture another after transfer activity to calculate movement.')}</p></div>
-            <div className="grid gap-6 xl:grid-cols-2"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} showDiscordPreview={false} /><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} showDiscordPreview={false} /></div>
+            <div className="grid gap-6 xl:grid-cols-2"><ReportCard title={t('reports.today', 'Today')} report={currentReports.daily} discordLanguage={discordLanguage} discordPreviewInProgress /><ReportCard title={t('reports.currentWeek', 'This week')} report={currentReports.weekly} discordLanguage={discordLanguage} discordPreviewInProgress /></div>
           </section>
           <section className="space-y-4">
             <div><h2 className="text-lg font-semibold">{t('reports.completed', 'Last completed reports')}</h2><p className="text-sm text-muted-foreground">{t('reports.completedDescription', 'These are the reports retained in history and sent to matching Discord destinations.')}</p></div>

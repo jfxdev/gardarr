@@ -1738,6 +1738,7 @@
     "name": "Torrent",
     "transferred": "Transferred",
     "discordPreview": "Discord preview",
+    "discordPreviewCurrent": "Discord preview if sent now",
     "current": "Current snapshot rankings",
     "currentDescription": "Live values calculated from stored snapshots. Discord is not required.",
     "baselineHint": "The first snapshot establishes a baseline; capture another after transfer activity to calculate movement.",
