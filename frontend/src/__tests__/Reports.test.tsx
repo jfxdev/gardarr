@@ -55,7 +55,8 @@ describe('ReportsPage', () => {
     const preview = await screen.findByTestId('discord-preview-daily')
     expect(preview).toHaveTextContent('Gardarr · Daily transfer report')
     expect(preview).toHaveTextContent('🥇 Alpha — 2.0 KB')
-    expect(preview).toHaveTextContent('2026-09-01T00:00:00Z → 2026-09-02T00:00:00Z')
+    expect(preview).not.toHaveTextContent('Period')
+    expect(preview).not.toHaveTextContent('Coverage')
   })
 
   it('uses the server language used by Discord for the preview', async () => {

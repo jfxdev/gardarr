@@ -561,11 +561,7 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 }
 
 func reportFields(event *entities.Event, language string) []embedField {
-	period := metadataString(event, "period_start")
-	end := metadataString(event, "period_end")
-	coverage := metadataString(event, "coverage")
-	fields := []embedField{{Name: "Period", Value: truncate(period+" → "+end, 1024), Inline: false}, {Name: "Coverage", Value: valueOr(coverage, "unavailable"), Inline: true}}
-	fields = append(fields, embedField{Name: "Upload", Value: rankingText(event.Metadata["upload"], language), Inline: false}, embedField{Name: "Download", Value: rankingText(event.Metadata["download"], language), Inline: false})
+	fields := []embedField{{Name: "Upload", Value: rankingText(event.Metadata["upload"], language), Inline: false}, {Name: "Download", Value: rankingText(event.Metadata["download"], language), Inline: false}}
 	if workers, ok := event.Metadata["unavailable_workers"]; ok && fmt.Sprint(workers) != "[]" {
 		fields = append(fields, embedField{Name: "Unavailable workers", Value: truncate(fmt.Sprint(workers), 1024), Inline: false})
 	}
@@ -648,10 +644,4 @@ func truncate(value string, max int) string {
 		return value
 	}
 	return string(runes[:max-1]) + "…"
-}
-func valueOr(value, fallback string) string {
-	if value == "" {
-		return fallback
-	}
-	return value
 }

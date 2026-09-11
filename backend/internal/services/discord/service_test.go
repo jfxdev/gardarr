@@ -69,7 +69,7 @@ func TestMatchesLeavesGlobalReportsUnaffectedByTorrentFilters(t *testing.T) {
 func TestBuildPayloadRendersEmptyReportPlaceholder(t *testing.T) {
 	event := &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, CreatedAt: time.Now(), Metadata: map[string]interface{}{"period_start": "2026-09-01T00:00:00Z", "period_end": "2026-09-02T00:00:00Z", "coverage": "unavailable", "upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}}
 	payload := buildPayload(event, "pt-BR")
-	if payload.Embeds[0].Title != "Gardarr · Relatório diário" || len(payload.Embeds[0].Fields) < 4 {
+	if payload.Embeds[0].Title != "Gardarr · Relatório diário" || len(payload.Embeds[0].Fields) != 2 || payload.Embeds[0].Fields[0].Name != "Upload" || payload.Embeds[0].Fields[1].Name != "Download" {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
 }
@@ -204,7 +204,7 @@ func TestFiltersAndFormattingCoverTorrentAndGlobalEvents(t *testing.T) {
 		t.Fatal("retry/event type helpers returned an unexpected result")
 	}
 	payload := buildPayload(&entities.Event{Type: constants.EventTypeTransferReportWeekly, CreatedAt: time.Now(), Metadata: map[string]interface{}{"period_start": "a", "period_end": "b", "coverage": "partial", "upload": []entities.TransferRankItem{{Rank: 1, Name: "Alpha", Bytes: 1024}}, "download": []entities.TransferRankItem{}}}, "pt-BR")
-	if payload.Embeds[0].Title != "Gardarr · Relatório semanal" || payload.Embeds[0].Fields[2].Value == "" || rankingText(nil, "pt-BR") != "Nenhuma movimentação registrada." || humanBytes(1024) != "1.0 KB" {
+	if payload.Embeds[0].Title != "Gardarr · Relatório semanal" || len(payload.Embeds[0].Fields) != 2 || payload.Embeds[0].Fields[0].Value == "" || rankingText(nil, "pt-BR") != "Nenhuma movimentação registrada." || humanBytes(1024) != "1.0 KB" {
 		t.Fatalf("unexpected formatted payload: %#v", payload)
 	}
 }

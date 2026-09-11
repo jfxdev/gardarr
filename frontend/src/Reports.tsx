@@ -104,8 +104,6 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
         <p className="font-semibold text-white">{title}</p>
         <p className="mt-1 text-sm text-[#b5bac1]">{description}</p>
         <dl className="mt-3 grid gap-3 text-sm">
-          <div><dt className="font-semibold text-white">Period</dt><dd className="mt-1 break-all text-[#dbdee1]">{discordTimestamp(report.period_start)} → {discordTimestamp(report.period_end)}</dd></div>
-          <div><dt className="font-semibold text-white">Coverage</dt><dd className="mt-1 text-[#dbdee1]">{report.coverage}</dd></div>
           <div><dt className="font-semibold text-white">Upload</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.upload} empty={empty} /></dd></div>
           <div><dt className="font-semibold text-white">Download</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.download} empty={empty} /></dd></div>
           {report.unavailable_workers.length > 0 && <div><dt className="font-semibold text-white">Unavailable workers</dt><dd className="mt-1 break-all text-[#dbdee1]">[{report.unavailable_workers.join(' ')}]</dd></div>}
