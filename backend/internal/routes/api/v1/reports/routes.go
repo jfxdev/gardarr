@@ -27,6 +27,8 @@ func (m *Module) Register() {
 	protected.GET("/settings", m.getSettings)
 	protected.PUT("/settings", m.updateSettings)
 	protected.GET("/latest", m.getLatest)
+	protected.GET("/current", m.getCurrent)
+	protected.POST("/snapshot", m.captureSnapshot)
 }
 
 func (m *Module) getSettings(c *gin.Context) {
@@ -59,6 +61,23 @@ func (m *Module) getLatest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"daily": reportResponse(daily), "weekly": reportResponse(weekly)})
+}
+
+func (m *Module) getCurrent(c *gin.Context) {
+	daily, weekly, err := m.service.GetCurrent(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve current transfer rankings"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"daily": reportResponse(daily), "weekly": reportResponse(weekly)})
+}
+
+func (m *Module) captureSnapshot(c *gin.Context) {
+	if err := m.service.CaptureNow(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to capture transfer snapshot"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func settingsResponse(settings *entities.TransferReportSettings) gin.H {

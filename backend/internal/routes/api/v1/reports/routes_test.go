@@ -70,6 +70,18 @@ func TestReportHandlersExposeSettingsAndLatestReports(t *testing.T) {
 	if writer.Code != http.StatusOK || writer.Body.String() != `{"daily":null,"weekly":null}` {
 		t.Fatalf("latest response: %d %s", writer.Code, writer.Body.String())
 	}
+
+	ctx, writer = reportsContext(t, http.MethodGet, "")
+	module.getCurrent(ctx)
+	if writer.Code != http.StatusOK || !bytes.Contains(writer.Body.Bytes(), []byte(`"daily"`)) {
+		t.Fatalf("current response: %d %s", writer.Code, writer.Body.String())
+	}
+
+	ctx, writer = reportsContext(t, http.MethodPost, "")
+	module.captureSnapshot(ctx)
+	if ctx.Writer.Status() != http.StatusNoContent {
+		t.Fatalf("manual snapshot response: %d %s", ctx.Writer.Status(), writer.Body.String())
+	}
 }
 
 func TestReportResponseIncludesRankingPayload(t *testing.T) {

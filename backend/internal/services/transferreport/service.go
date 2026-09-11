@@ -82,6 +82,42 @@ func (s *Service) GetLatest(ctx context.Context) (daily, weekly *entities.Transf
 	return daily, weekly, err
 }
 
+// GetCurrent builds in-progress daily and weekly rankings from persisted snapshots.
+func (s *Service) GetCurrent(ctx context.Context) (daily, weekly *entities.TransferReport, err error) {
+	settings, err := s.repo.EnsureSettings(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	timezone, err := s.settings.GetTimezone(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return nil, nil, err
+	}
+	now := s.now().UTC()
+	localNow := now.In(location)
+	dayStart := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, location)
+	daily, err = s.buildReport(ctx, entities.TransferReportPeriodDaily, dayStart.UTC(), now, timezone, settings.TopN)
+	if err != nil {
+		return nil, nil, err
+	}
+	daysSinceWeekStart := (int(localNow.Weekday()) - settings.WeeklyReportDay + 7) % 7
+	weekStart := dayStart.AddDate(0, 0, -daysSinceWeekStart)
+	weekly, err = s.buildReport(ctx, entities.TransferReportPeriodWeekly, weekStart.UTC(), now, timezone, settings.TopN)
+	if err != nil {
+		return nil, nil, err
+	}
+	return daily, weekly, nil
+}
+
+// CaptureNow records the current worker counters outside the scheduled cadence.
+func (s *Service) CaptureNow(ctx context.Context) error {
+	now := s.now().UTC()
+	return s.capture(ctx, now, now)
+}
+
 // Start runs one reconciliation immediately, then checks local-time slots at
 // minute granularity. Settings are read each reconciliation so UI updates take
 // effect without a process restart.
@@ -167,7 +203,7 @@ func snapshotSlot(now time.Time, perDay int) (time.Time, bool) {
 	return time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, now.Location()), true
 }
 
-func (s *Service) capture(ctx context.Context, scheduledAt, capturedAt time.Time) error {
+func (s *Service) capture(ctx context.Context, scheduledAt, observedAt time.Time) error {
 	workers, err := s.workers.ListWorkersBasic()
 	if err != nil {
 		return err
@@ -176,10 +212,13 @@ func (s *Service) capture(ctx context.Context, scheduledAt, capturedAt time.Time
 	if err != nil {
 		return err
 	}
-	run := &entities.TransferSnapshotRun{UUID: uuid.New(), ScheduledAt: scheduledAt, CapturedAt: capturedAt, WorkerErrors: result.Errors}
+	// Runs retain when qBittorrent was actually observed for diagnostics, while
+	// snapshots are assigned to their scheduled slot so delayed reconciliation
+	// remains in the report period it is filling.
+	run := &entities.TransferSnapshotRun{UUID: uuid.New(), ScheduledAt: scheduledAt, CapturedAt: observedAt, WorkerErrors: result.Errors}
 	snapshots := make([]entities.TransferSnapshot, 0, len(result.Tasks))
 	for _, task := range result.Tasks {
-		snapshots = append(snapshots, entities.TransferSnapshot{UUID: uuid.New(), RunID: run.UUID, WorkerID: task.WorkerID, Hash: task.Hash, Name: task.Name, Uploaded: int64(task.Network.Upload.Amount), Downloaded: int64(task.Network.Download.Amount), CapturedAt: capturedAt})
+		snapshots = append(snapshots, entities.TransferSnapshot{UUID: uuid.New(), RunID: run.UUID, WorkerID: task.WorkerID, Hash: task.Hash, Name: task.Name, Uploaded: int64(task.Network.Upload.Amount), Downloaded: int64(task.Network.Download.Amount), CapturedAt: scheduledAt})
 	}
 	return s.repo.CreateRun(ctx, run, snapshots)
 }
@@ -194,6 +233,26 @@ func (s *Service) generatePending(ctx context.Context, settings *entities.Transf
 		return err
 	}
 	if existing != nil && existing.PeriodStart.Equal(start.UTC()) && existing.PeriodEnd.Equal(end.UTC()) {
+		if existing.Coverage == "unavailable" {
+			runCount, err := s.repo.CountRunsBetween(ctx, start.UTC(), end.UTC())
+			if err != nil {
+				return err
+			}
+			if runCount > 0 {
+				refreshed, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN)
+				if err != nil {
+					return err
+				}
+				// Keep the durable event identity: refreshing coverage must not
+				// create a second Discord notification for the same period.
+				refreshed.UUID = existing.UUID
+				refreshed.GeneratedAt = existing.GeneratedAt
+				existing, err = s.repo.UpsertLatest(ctx, *refreshed)
+				if err != nil {
+					return err
+				}
+			}
+		}
 		return s.recordReportEvent(ctx, existing)
 	}
 	report, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN)

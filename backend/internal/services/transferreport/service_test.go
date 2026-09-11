@@ -112,6 +112,176 @@ func TestRankSnapshotsExcludesTheStartBoundary(t *testing.T) {
 	}
 }
 
+func TestDelayedCaptureUsesScheduledBoundaryForReports(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		start time.Time
+		end   time.Time
+	}{
+		{
+			name:  "daily",
+			start: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+			end:   time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:  "weekly",
+			start: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+			end:   time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service, workers, _ := testService(t)
+			workerID := uuid.New()
+			workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "movie", Name: "Movie", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}}}}
+
+			baseline := tc.end.Add(-6 * time.Hour)
+			if err := service.capture(context.Background(), baseline, baseline); err != nil {
+				t.Fatalf("capture baseline: %v", err)
+			}
+			workers.tasks[0].Network.Upload.Amount = 150
+			observedAt := tc.end.Add(15 * time.Minute)
+			if err := service.capture(context.Background(), tc.end, observedAt); err != nil {
+				t.Fatalf("capture delayed slot: %v", err)
+			}
+
+			snapshots, err := service.repo.ListSnapshotsUntil(context.Background(), tc.end)
+			if err != nil {
+				t.Fatalf("list scheduled snapshots: %v", err)
+			}
+			if len(snapshots) != 2 || !snapshots[1].CapturedAt.Equal(tc.end) {
+				t.Fatalf("delayed snapshot was not assigned to its slot: %#v", snapshots)
+			}
+			ranking := rankSnapshots(snapshots, tc.start, tc.end, 10)
+			if len(ranking.upload) != 1 || ranking.upload[0].Bytes != 50 {
+				t.Fatalf("scheduled-boundary transfer was not included: %#v", ranking.upload)
+			}
+		})
+	}
+}
+
+func TestDelayedCaptureCountsAsCoverageForItsScheduledPeriod(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		start time.Time
+		end   time.Time
+	}{
+		{
+			name:  "daily",
+			start: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+			end:   time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:  "weekly",
+			start: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+			end:   time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service, workers, _ := testService(t)
+			workerID := uuid.New()
+			workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "movie", Name: "Movie", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}}}}
+
+			baseline := tc.end.Add(-6 * time.Hour)
+			if err := service.capture(context.Background(), baseline, baseline); err != nil {
+				t.Fatalf("capture baseline: %v", err)
+			}
+			workers.tasks[0].Network.Upload.Amount = 150
+			if err := service.capture(context.Background(), tc.end, tc.end.Add(15*time.Minute)); err != nil {
+				t.Fatalf("capture delayed slot: %v", err)
+			}
+
+			report, err := service.buildReport(context.Background(), tc.name, tc.start, tc.end, "UTC", 10)
+			if err != nil {
+				t.Fatalf("build report: %v", err)
+			}
+			if report.Coverage != "complete" || len(report.Upload) != 1 || report.Upload[0].Bytes != 50 {
+				t.Fatalf("scheduled capture was marked unavailable: %#v", report)
+			}
+		})
+	}
+}
+
+func TestGeneratePendingRefreshesUnavailableReportWhenSnapshotsArrive(t *testing.T) {
+	service, workers, recorder := testService(t)
+	settings, err := service.GetSettings(context.Background())
+	if err != nil {
+		t.Fatalf("settings: %v", err)
+	}
+	end := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	start := end.AddDate(0, 0, -1)
+	existing := entities.TransferReport{UUID: uuid.New(), PeriodType: entities.TransferReportPeriodDaily, PeriodStart: start, PeriodEnd: end, Timezone: "UTC", GeneratedAt: end.Add(5 * time.Minute), Coverage: "unavailable"}
+	if _, err := service.repo.UpsertLatest(context.Background(), existing); err != nil {
+		t.Fatalf("store unavailable report: %v", err)
+	}
+
+	workerID := uuid.New()
+	workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "movie", Name: "Movie", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}}}}
+	baseline := end.Add(-6 * time.Hour)
+	if err := service.capture(context.Background(), baseline, baseline); err != nil {
+		t.Fatalf("capture baseline: %v", err)
+	}
+	workers.tasks[0].Network.Upload.Amount = 150
+	if err := service.capture(context.Background(), end, end.Add(15*time.Minute)); err != nil {
+		t.Fatalf("capture delayed slot: %v", err)
+	}
+
+	service.now = func() time.Time { return end.Add(6 * time.Minute) }
+	if err := service.generatePending(context.Background(), settings, "UTC", time.UTC, service.now(), entities.TransferReportPeriodDaily); err != nil {
+		t.Fatalf("refresh report: %v", err)
+	}
+	daily, _, err := service.GetLatest(context.Background())
+	if err != nil || daily == nil || daily.UUID != existing.UUID || daily.Coverage != "complete" || len(daily.Upload) != 1 || daily.Upload[0].Bytes != 50 {
+		t.Fatalf("unavailable report was not refreshed: %#v err=%v", daily, err)
+	}
+	if len(recorder.events) != 1 || recorder.events[0].UUID != uuid.NewSHA1(existing.UUID, []byte("transfer-report-event")) {
+		t.Fatalf("refresh should keep the original report event: %#v", recorder.events)
+	}
+}
+
+func TestCaptureNowStoresAnImmediateSnapshot(t *testing.T) {
+	service, workers, _ := testService(t)
+	workerID := uuid.New()
+	workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "manual", Name: "Manual", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 42}}}}
+	now := time.Date(2026, 9, 2, 15, 4, 5, 0, time.UTC)
+	service.now = func() time.Time { return now }
+
+	if err := service.CaptureNow(context.Background()); err != nil {
+		t.Fatalf("capture now: %v", err)
+	}
+	snapshots, err := service.repo.ListSnapshotsUntil(context.Background(), now)
+	if err != nil {
+		t.Fatalf("list snapshots: %v", err)
+	}
+	if len(snapshots) != 1 || !snapshots[0].CapturedAt.Equal(now) {
+		t.Fatalf("manual snapshot not stored at the current time: %#v", snapshots)
+	}
+}
+
+func TestGetCurrentBuildsRankingsFromPersistedSnapshots(t *testing.T) {
+	service, workers, _ := testService(t)
+	workerID := uuid.New()
+	workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "movie", Name: "Movie", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}}}}
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+	if err := service.capture(context.Background(), now.Add(-11*time.Hour), now.Add(-11*time.Hour)); err != nil {
+		t.Fatalf("capture baseline: %v", err)
+	}
+	workers.tasks[0].Network.Upload.Amount = 150
+	if err := service.capture(context.Background(), now, now); err != nil {
+		t.Fatalf("capture current value: %v", err)
+	}
+	service.now = func() time.Time { return now }
+
+	daily, weekly, err := service.GetCurrent(context.Background())
+	if err != nil {
+		t.Fatalf("get current: %v", err)
+	}
+	for _, report := range []*entities.TransferReport{daily, weekly} {
+		if report == nil || report.Coverage != "complete" || len(report.Upload) != 1 || report.Upload[0].Bytes != 50 {
+			t.Fatalf("unexpected current report: %#v", report)
+		}
+	}
+}
+
 func TestExpectedPeriodUsesMondayWeek(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Sao_Paulo")
 	settings := &entities.TransferReportSettings{DailyReportTime: "00:05", WeeklyReportDay: 1, WeeklyReportTime: "00:10"}

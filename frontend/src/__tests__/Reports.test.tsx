@@ -2,9 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportsPage from '@/Reports'
 
-const { getSettings, getLatest, updateSettings, toast } = vi.hoisted(() => ({ getSettings: vi.fn(), getLatest: vi.fn(), updateSettings: vi.fn(), toast: { error: vi.fn(), success: vi.fn() } }))
+const { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot, toast } = vi.hoisted(() => ({ getSettings: vi.fn(), getLatest: vi.fn(), getCurrent: vi.fn(), updateSettings: vi.fn(), captureSnapshot: vi.fn(), toast: { error: vi.fn(), success: vi.fn() } }))
+const { getLanguage } = vi.hoisted(() => ({ getLanguage: vi.fn() }))
 
-vi.mock('@/services/transferReports', () => ({ transferReportsService: { getSettings, getLatest, updateSettings } }))
+vi.mock('@/services/transferReports', () => ({ transferReportsService: { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot } }))
+vi.mock('@/services/settings', () => ({ settingsService: { getLanguage } }))
 vi.mock('sonner', () => ({ toast }))
 
 const settings = { enabled: true, snapshots_per_day: 4, daily_report_time: '00:05', weekly_report_day: 1, weekly_report_time: '00:10', top_n: 10 }
@@ -15,14 +17,17 @@ describe('ReportsPage', () => {
     vi.clearAllMocks()
     getSettings.mockResolvedValue({ data: settings })
     getLatest.mockResolvedValue({ data: { daily: report, weekly: null } })
+    getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete' }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', coverage: 'complete' } } })
     updateSettings.mockResolvedValue({ data: { ...settings, snapshots_per_day: 6 } })
+    captureSnapshot.mockResolvedValue({ data: null })
+    getLanguage.mockResolvedValue({ data: { default_language: 'en-US' } })
   })
 
   it('loads, renders partial rankings and persists changed settings', async () => {
     render(<ReportsPage />)
-    expect(await screen.findByText('Alpha')).toBeInTheDocument()
-    expect(screen.getByText('Some workers were unavailable.')).toBeInTheDocument()
-    expect(screen.getByText('No download movement available for this period.')).toBeInTheDocument()
+    expect((await screen.findAllByText('Alpha')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Some workers were unavailable.')).not.toHaveLength(0)
+    expect(screen.getAllByText('No download movement available for this period.')).not.toHaveLength(0)
     fireEvent.change(screen.getByDisplayValue('4'), { target: { value: '6' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }))
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ snapshots_per_day: 6 })))
@@ -40,8 +45,37 @@ describe('ReportsPage', () => {
   it('formats report dates in the report timezone', async () => {
     const formatter = vi.spyOn(Intl, 'DateTimeFormat')
     render(<ReportsPage />)
-    await screen.findByText('Alpha')
+    await screen.findAllByText('Alpha')
     expect(formatter.mock.calls.some(([, options]) => options?.timeZone === 'America/Sao_Paulo')).toBe(true)
     formatter.mockRestore()
+  })
+
+  it('previews the Discord embed for each available report', async () => {
+    render(<ReportsPage />)
+    const preview = await screen.findByTestId('discord-preview-daily')
+    expect(preview).toHaveTextContent('Gardarr · Daily transfer report')
+    expect(preview).toHaveTextContent('1. Alpha — 2.0 KB')
+    expect(preview).toHaveTextContent('2026-09-01T00:00:00Z → 2026-09-02T00:00:00Z')
+  })
+
+  it('uses the server language used by Discord for the preview', async () => {
+    getLanguage.mockResolvedValue({ data: { default_language: 'pt-BR' } })
+    render(<ReportsPage />)
+    expect(await screen.findByTestId('discord-preview-daily')).toHaveTextContent('Gardarr · Relatório diário')
+  })
+
+  it('shows current rankings without requiring Discord', async () => {
+    render(<ReportsPage />)
+    expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()
+    expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
+  })
+
+  it('captures a snapshot and displays ranking tables', async () => {
+    render(<ReportsPage />)
+    await screen.findAllByText('Alpha')
+    expect(screen.getAllByRole('table', { name: 'Upload' })).not.toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Capture snapshot now' }))
+    await waitFor(() => expect(captureSnapshot).toHaveBeenCalledOnce())
+    expect(toast.success).toHaveBeenCalledWith('Transfer snapshot captured.')
   })
 })

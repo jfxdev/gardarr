@@ -84,12 +84,12 @@ func (r *Repository) CountRuns(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-// CountRunsBetween returns runs collected within the half-open report period.
+// CountRunsBetween returns runs assigned to the half-open report period.
 func (r *Repository) CountRunsBetween(ctx context.Context, start, end time.Time) (int64, error) {
 	var count int64
 	err := r.db.DB.WithContext(ctx).
 		Model(&models.TransferSnapshotRun{}).
-		Where("captured_at > ? AND captured_at <= ?", start.UTC(), end.UTC()).
+		Where("scheduled_at > ? AND scheduled_at <= ?", start.UTC(), end.UTC()).
 		Count(&count).Error
 	return count, err
 }
@@ -133,7 +133,7 @@ func (r *Repository) ListSnapshotsUntil(ctx context.Context, until time.Time) ([
 
 func (r *Repository) ListRunErrors(ctx context.Context, start, end time.Time) ([]map[string]string, error) {
 	var rows []models.TransferSnapshotRun
-	if err := r.db.DB.WithContext(ctx).Where("captured_at > ? AND captured_at <= ?", start.UTC(), end.UTC()).Find(&rows).Error; err != nil {
+	if err := r.db.DB.WithContext(ctx).Where("scheduled_at > ? AND scheduled_at <= ?", start.UTC(), end.UTC()).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]string, 0, len(rows))
