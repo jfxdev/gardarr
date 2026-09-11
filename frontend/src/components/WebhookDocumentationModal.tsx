@@ -41,6 +41,18 @@ export function WebhookDocumentationModal({ isOpen, onClose }: WebhookDocumentat
       fields: ['new_value', 'task_hash'],
       metadata: ['name', 'ratio', 'size', 'category'],
     },
+    {
+      type: 'report.transfer.daily',
+      description: 'Fired after the daily transfer ranking is generated',
+      fields: [],
+      metadata: ['period_start', 'period_end', 'timezone', 'coverage', 'upload', 'download', 'unavailable_workers'],
+    },
+    {
+      type: 'report.transfer.weekly',
+      description: 'Fired after the weekly transfer ranking is generated',
+      fields: [],
+      metadata: ['period_start', 'period_end', 'timezone', 'coverage', 'upload', 'download', 'unavailable_workers'],
+    },
   ];
 
   const torrentStatesConfig = [
