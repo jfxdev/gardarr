@@ -32,6 +32,8 @@ const (
 	maxDiscordResponseSize = 1 << 20
 )
 
+var ErrNoMatchingDestinations = errors.New("no matching enabled Discord destinations")
+
 type Input struct {
 	Name           string
 	WebhookURL     string
@@ -63,6 +65,7 @@ type destination struct {
 type target struct {
 	id          uuid.UUID
 	integration *entities.DiscordIntegration
+	webhookURL  string
 	jobs        chan<- *entities.Event
 }
 
@@ -170,7 +173,7 @@ func (s *Service) dispatch(ctx context.Context, event *entities.Event) {
 	s.mu.RLock()
 	targets := make([]target, 0, len(s.destinations))
 	for id, value := range s.destinations {
-		targets = append(targets, target{id: id, integration: value.integration, jobs: value.jobs})
+		targets = append(targets, target{id: id, integration: value.integration, webhookURL: value.webhookURL, jobs: value.jobs})
 	}
 	s.mu.RUnlock()
 	for _, target := range targets {
@@ -183,6 +186,37 @@ func (s *Service) dispatch(ctx context.Context, event *entities.Event) {
 			s.saveHistory(ctx, target.id, event.Type, 0, "delivery queue full")
 		}
 	}
+}
+
+// Deliver sends an event immediately to the enabled Discord destinations that
+// match it. Unlike the event subscriber path, callers receive a delivery
+// result suitable for an explicit user action.
+func (s *Service) Deliver(ctx context.Context, event *entities.Event) (int, error) {
+	if event == nil {
+		return 0, errors.New("Discord event is required")
+	}
+	s.mu.RLock()
+	targets := make([]target, 0, len(s.destinations))
+	for id, value := range s.destinations {
+		targets = append(targets, target{id: id, integration: value.integration, webhookURL: value.webhookURL})
+	}
+	s.mu.RUnlock()
+
+	delivered := 0
+	var deliveryErr error
+	for _, target := range targets {
+		if !matches(target.integration, event) {
+			continue
+		}
+		delivered++
+		if err := s.deliverNow(ctx, target.id, target.webhookURL, event); err != nil && deliveryErr == nil {
+			deliveryErr = err
+		}
+	}
+	if delivered == 0 {
+		return 0, ErrNoMatchingDestinations
+	}
+	return delivered, deliveryErr
 }
 
 func (s *Service) Create(ctx context.Context, input Input) (*entities.DiscordIntegration, error) {
@@ -495,6 +529,14 @@ func metadataString(event *entities.Event, key string) string {
 	return value
 }
 
+func metadataBool(event *entities.Event, key string) bool {
+	if event.Metadata == nil {
+		return false
+	}
+	value, _ := event.Metadata[key].(bool)
+	return value
+}
+
 type embedField struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`
@@ -529,8 +571,14 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 	if language == "pt-BR" {
 		switch event.Type {
 		case constants.EventTypeTransferReportDaily:
+			if metadataBool(event, "in_progress") {
+				return "Gardarr · Relatório diário", "Ranking de transferências até agora hoje.", 0x5865F2
+			}
 			return "Gardarr · Relatório diário", "Ranking de transferências do dia encerrado.", 0x5865F2
 		case constants.EventTypeTransferReportWeekly:
+			if metadataBool(event, "in_progress") {
+				return "Gardarr · Relatório semanal", "Ranking de transferências até agora nesta semana.", 0x5865F2
+			}
 			return "Gardarr · Relatório semanal", "Ranking de transferências da semana encerrada.", 0x5865F2
 		case constants.EventTypeTorrentCompleted:
 			return "Gardarr · Torrent concluído", "Um torrent terminou o download.", 0x57F287
@@ -544,8 +592,14 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 	}
 	switch event.Type {
 	case constants.EventTypeTransferReportDaily:
+		if metadataBool(event, "in_progress") {
+			return "Gardarr · Daily transfer report", "Top transfer activity so far today.", 0x5865F2
+		}
 		return "Gardarr · Daily transfer report", "Top transfer activity for the completed day.", 0x5865F2
 	case constants.EventTypeTransferReportWeekly:
+		if metadataBool(event, "in_progress") {
+			return "Gardarr · Weekly transfer report", "Top transfer activity so far this week.", 0x5865F2
+		}
 		return "Gardarr · Weekly transfer report", "Top transfer activity for the completed week.", 0x5865F2
 	case constants.EventTypeTorrentCompleted:
 		return "Gardarr · Torrent completed", "A torrent completed downloading.", 0x57F287

@@ -561,7 +561,7 @@ func setRoutes(dependencies routeDependencies, allowedOrigins []string) error {
 	signup.NewModule(v1, dependencies.db).Register()
 	setup.NewModule(v1, dependencies.db).Register()
 	settings.NewModule(v1, dependencies.db, dependencies.metadata).Register()
-	reportsRoutes.NewModule(v1, dependencies.db, dependencies.transferReports).Register()
+	reportsRoutes.NewModule(v1, dependencies.db, dependencies.transferReports, dependencies.discord).Register()
 	discordRoutes.NewModule(v1, dependencies.db, dependencies.discord).Register()
 	version.NewModule(v1, dependencies.db).Register()
 	eventsModule, err := eventsRoutes.NewModule(v1, dependencies.db)

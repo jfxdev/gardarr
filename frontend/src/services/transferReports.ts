@@ -7,5 +7,6 @@ class TransferReportsService {
   getLatest(): Promise<ApiResponse<LatestTransferReports>> { return api.get('/reports/transfer/latest'); }
   getCurrent(): Promise<ApiResponse<LatestTransferReports>> { return api.get('/reports/transfer/current'); }
   captureSnapshot(): Promise<ApiResponse<null>> { return api.post('/reports/transfer/snapshot'); }
+  sendDiscord(source: 'current' | 'completed', periodType: 'daily' | 'weekly'): Promise<ApiResponse<{ delivered: number }>> { return api.post('/reports/transfer/send-discord', { source, period_type: periodType }); }
 }
 export const transferReportsService = new TransferReportsService();

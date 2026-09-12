@@ -23,6 +23,8 @@ const snapshotRetention = 15 * 24 * time.Hour
 
 var allowedSnapshots = map[int]bool{1: true, 2: true, 3: true, 4: true, 6: true, 8: true, 12: true, 24: true}
 
+var ErrReportNotFound = errors.New("transfer report not found")
+
 type workerService interface {
 	ListWorkersBasic() ([]*entities.Worker, error)
 	ListTasks(context.Context, []*entities.Worker) (*entities.TaskListResult, error)
@@ -110,6 +112,40 @@ func (s *Service) GetCurrent(ctx context.Context) (daily, weekly *entities.Trans
 		return nil, nil, err
 	}
 	return daily, weekly, nil
+}
+
+// GetNotificationReport returns the report selected for a manual notification.
+func (s *Service) GetNotificationReport(ctx context.Context, source, periodType string) (*entities.TransferReport, bool, error) {
+	if periodType != entities.TransferReportPeriodDaily && periodType != entities.TransferReportPeriodWeekly {
+		return nil, false, fmt.Errorf("unsupported transfer report period")
+	}
+	if source == "current" {
+		daily, weekly, err := s.GetCurrent(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		if periodType == entities.TransferReportPeriodWeekly {
+			return weekly, true, nil
+		}
+		return daily, true, nil
+	}
+	if source == "completed" {
+		daily, weekly, err := s.GetLatest(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		if periodType == entities.TransferReportPeriodWeekly {
+			if weekly == nil {
+				return nil, false, ErrReportNotFound
+			}
+			return weekly, false, nil
+		}
+		if daily == nil {
+			return nil, false, ErrReportNotFound
+		}
+		return daily, false, nil
+	}
+	return nil, false, fmt.Errorf("unsupported transfer report source")
 }
 
 // CaptureNow records the current worker counters outside the scheduled cadence.
@@ -411,6 +447,18 @@ func uniqueWorkerIDs(all []map[string]string) []string {
 
 func reportMetadata(report *entities.TransferReport) map[string]interface{} {
 	return map[string]interface{}{"report_uuid": report.UUID.String(), "period_type": report.PeriodType, "period_start": report.PeriodStart.Format(time.RFC3339), "period_end": report.PeriodEnd.Format(time.RFC3339), "timezone": report.Timezone, "coverage": report.Coverage, "unavailable_workers": report.UnavailableWorkers, "upload": report.Upload, "download": report.Download}
+}
+
+// BuildNotificationEvent keeps manual Discord sends aligned with the report
+// event contract without recording a second durable report event.
+func BuildNotificationEvent(report *entities.TransferReport, inProgress bool) *entities.Event {
+	eventType := constants.EventTypeTransferReportDaily
+	if report.PeriodType == entities.TransferReportPeriodWeekly {
+		eventType = constants.EventTypeTransferReportWeekly
+	}
+	metadata := reportMetadata(report)
+	metadata["in_progress"] = inProgress
+	return &entities.Event{UUID: uuid.New(), Type: eventType, Metadata: metadata, CreatedAt: report.GeneratedAt}
 }
 
 func validClock(value string) bool { _, err := time.Parse("15:04", value); return err == nil }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Bell, Camera, Download, Save, Settings2, Upload } from 'lucide-react'
+import { AlertTriangle, BarChart3, Bell, Camera, Download, Save, Send, Settings2, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -166,6 +166,8 @@ export default function ReportsPage() {
   const [capturing, setCapturing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [notificationPreviewOpen, setNotificationPreviewOpen] = useState(false)
+  const [notificationPreviewTab, setNotificationPreviewTab] = useState('current-daily')
+  const [sendingDiscord, setSendingDiscord] = useState(false)
   const [discordLanguage, setDiscordLanguage] = useState(i18n.language)
 
   const load = useCallback(async () => {
@@ -219,6 +221,25 @@ export default function ReportsPage() {
     }
   }
 
+  const selectedPreviewReport = notificationPreviewTab === 'current-daily' ? currentReports.daily
+    : notificationPreviewTab === 'current-weekly' ? currentReports.weekly
+      : notificationPreviewTab === 'daily' ? reports.daily : reports.weekly
+
+  const sendDiscord = async () => {
+    const source = notificationPreviewTab.startsWith('current-') ? 'current' : 'completed'
+    const periodType = notificationPreviewTab.endsWith('weekly') ? 'weekly' : 'daily'
+    setSendingDiscord(true)
+    try {
+      const result = await transferReportsService.sendDiscord(source, periodType)
+      if (result.data) toast.success(t('reports.discordSent', 'Sent to {{count}} Discord destinations.', { count: result.data.delivered }))
+      else toast.error(result.error || t('reports.discordSendFailed', 'Could not send the notification to Discord.'))
+    } catch {
+      toast.error(t('reports.discordSendFailed', 'Could not send the notification to Discord.'))
+    } finally {
+      setSendingDiscord(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -247,7 +268,7 @@ export default function ReportsPage() {
       <Dialog open={notificationPreviewOpen} onOpenChange={setNotificationPreviewOpen}>
         <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto">
           <DialogHeader><DialogTitle>{t('reports.notificationPreview', 'Notification Preview')}</DialogTitle><DialogDescription>{t('reports.notificationPreviewDescription', 'Preview the Discord notification format for current and completed reports.')}</DialogDescription></DialogHeader>
-          <Tabs defaultValue="current-daily">
+          <Tabs value={notificationPreviewTab} onValueChange={setNotificationPreviewTab}>
             <TabsList className="h-auto flex-wrap justify-start" aria-label={t('reports.notificationPreview', 'Notification Preview')}>
               <TabsTrigger value="current-daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
               <TabsTrigger value="current-weekly">{t('reports.currentWeekly', 'Weekly')}</TabsTrigger>
@@ -259,6 +280,7 @@ export default function ReportsPage() {
             <TabsContent value="daily">{reports.daily ? <DiscordReportPreview report={reports.daily} language={discordLanguage} /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
             <TabsContent value="weekly">{reports.weekly ? <DiscordReportPreview report={reports.weekly} language={discordLanguage} /> : <p className="text-sm text-muted-foreground">{t('reports.noReport', 'No report generated yet.')}</p>}</TabsContent>
           </Tabs>
+          <DialogFooter><Button onClick={() => { void sendDiscord() }} disabled={sendingDiscord || !selectedPreviewReport}><Send className="mr-2 h-4 w-4" />{sendingDiscord ? t('reports.sendingDiscord', 'Sending…') : t('reports.sendDiscord', 'Send to Discord')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       {loading ? <p className="text-sm text-muted-foreground">{t('common.loading', 'Loading…')}</p> : (

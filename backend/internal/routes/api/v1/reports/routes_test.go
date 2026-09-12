@@ -27,6 +27,17 @@ type routeTimezone struct{}
 
 func (routeTimezone) GetTimezone(context.Context) (string, error) { return "UTC", nil }
 
+type routeDiscordDelivery struct {
+	event     *entities.Event
+	delivered int
+	err       error
+}
+
+func (f *routeDiscordDelivery) Deliver(_ context.Context, event *entities.Event) (int, error) {
+	f.event = event
+	return f.delivered, f.err
+}
+
 func reportsContext(t *testing.T, method, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 	writer := httptest.NewRecorder()
@@ -40,7 +51,8 @@ func TestReportHandlersExposeSettingsAndLatestReports(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := database.SetupTestDB(t, &models.TransferReportSettings{}, &models.TransferSnapshotRun{}, &models.TransferSnapshot{}, &models.TransferReport{})
 	service := transferreport.NewService(db, routeWorkers{}, routeTimezone{}, nil)
-	module := NewModule(gin.New().Group("/v1"), db, service)
+	delivery := &routeDiscordDelivery{delivered: 2}
+	module := NewModule(gin.New().Group("/v1"), db, service, delivery)
 	module.Register()
 
 	ctx, writer := reportsContext(t, http.MethodGet, "")
@@ -81,6 +93,12 @@ func TestReportHandlersExposeSettingsAndLatestReports(t *testing.T) {
 	module.captureSnapshot(ctx)
 	if ctx.Writer.Status() != http.StatusNoContent {
 		t.Fatalf("manual snapshot response: %d %s", ctx.Writer.Status(), writer.Body.String())
+	}
+
+	ctx, writer = reportsContext(t, http.MethodPost, `{"source":"current","period_type":"daily"}`)
+	module.sendDiscord(ctx)
+	if writer.Code != http.StatusOK || !bytes.Contains(writer.Body.Bytes(), []byte(`"delivered":2`)) || delivery.event == nil || delivery.event.Type != "report.transfer.daily" || delivery.event.Metadata["in_progress"] != true {
+		t.Fatalf("manual Discord response: %d %s event=%#v", writer.Code, writer.Body.String(), delivery.event)
 	}
 }
 

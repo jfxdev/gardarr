@@ -9,3 +9,9 @@ type TransferReportSettingsRequest struct {
 	WeeklyReportTime string `json:"weekly_report_time" binding:"required"`
 	TopN             int    `json:"top_n" binding:"required"`
 }
+
+// TransferReportDiscordSendRequest selects the report rendered in a manual Discord notification.
+type TransferReportDiscordSendRequest struct {
+	Source     string `json:"source" binding:"required,oneof=current completed"`
+	PeriodType string `json:"period_type" binding:"required,oneof=daily weekly"`
+}

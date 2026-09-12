@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportsPage from '@/Reports'
 
-const { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot, toast } = vi.hoisted(() => ({ getSettings: vi.fn(), getLatest: vi.fn(), getCurrent: vi.fn(), updateSettings: vi.fn(), captureSnapshot: vi.fn(), toast: { error: vi.fn(), success: vi.fn() } }))
+const { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot, sendDiscord, toast } = vi.hoisted(() => ({ getSettings: vi.fn(), getLatest: vi.fn(), getCurrent: vi.fn(), updateSettings: vi.fn(), captureSnapshot: vi.fn(), sendDiscord: vi.fn(), toast: { error: vi.fn(), success: vi.fn() } }))
 const { getLanguage } = vi.hoisted(() => ({ getLanguage: vi.fn() }))
 
-vi.mock('@/services/transferReports', () => ({ transferReportsService: { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot } }))
+vi.mock('@/services/transferReports', () => ({ transferReportsService: { getSettings, getLatest, getCurrent, updateSettings, captureSnapshot, sendDiscord } }))
 vi.mock('@/services/settings', () => ({ settingsService: { getLanguage } }))
 vi.mock('sonner', () => ({ toast }))
 
@@ -21,6 +21,7 @@ describe('ReportsPage', () => {
     getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete', upload: [1, 2, 3, 4, 5].map((rank) => ({ rank, name: `Current ${rank}`, hash: `current-${rank}`, bytes: rank * 1024 })) }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', coverage: 'complete' } } })
     updateSettings.mockResolvedValue({ data: { ...settings, snapshots_per_day: 6 } })
     captureSnapshot.mockResolvedValue({ data: null })
+    sendDiscord.mockResolvedValue({ data: { delivered: 2 } })
     getLanguage.mockResolvedValue({ data: { default_language: 'en-US' } })
   })
 
@@ -74,6 +75,15 @@ describe('ReportsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
     await user.click(screen.getByRole('tab', { name: 'Daily report' }))
     expect(await screen.findByTestId('discord-preview-daily')).toHaveTextContent('Gardarr · Relatório diário')
+  })
+
+  it('sends the selected notification to Discord', async () => {
+    const user = userEvent.setup()
+    render(<ReportsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
+    await user.click(screen.getByRole('button', { name: 'Send to Discord' }))
+    await waitFor(() => expect(sendDiscord).toHaveBeenCalledWith('current', 'daily'))
+    expect(toast.success).toHaveBeenCalled()
   })
 
   it('shows current rankings without requiring Discord', async () => {

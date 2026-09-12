@@ -74,6 +74,34 @@ func TestBuildPayloadRendersEmptyReportPlaceholder(t *testing.T) {
 	}
 }
 
+func TestBuildPayloadUsesCurrentReportDescription(t *testing.T) {
+	event := &entities.Event{Type: constants.EventTypeTransferReportDaily, CreatedAt: time.Now(), Metadata: map[string]interface{}{"in_progress": true, "upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}}
+	if description := buildPayload(event, "en-US").Embeds[0].Description; description != "Top transfer activity so far today." {
+		t.Fatalf("current report description = %q", description)
+	}
+}
+
+func TestDeliverSendsMatchingDiscordDestinations(t *testing.T) {
+	service, ctx, cancel := testDiscordService(t)
+	defer cancel()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	id := uuid.New()
+	service.destinations[id] = &destination{integration: &entities.DiscordIntegration{UUID: id, AllEvents: false, EventTypes: []string{constants.EventTypeTransferReportDaily}}, webhookURL: server.URL}
+
+	delivered, err := service.Deliver(ctx, &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, Metadata: map[string]interface{}{"upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}, CreatedAt: time.Now()})
+	if err != nil || delivered != 1 || calls.Load() != 1 {
+		t.Fatalf("manual delivery = %d, err=%v, calls=%d", delivered, err, calls.Load())
+	}
+	if _, err := service.Deliver(ctx, &entities.Event{Type: constants.EventTypeTransferReportWeekly}); !errors.Is(err, ErrNoMatchingDestinations) {
+		t.Fatalf("expected no matching destination error, got %v", err)
+	}
+}
+
 func TestRankingTextUsesMedalsCompactNamesAndBoldBytes(t *testing.T) {
 	longName := strings.Repeat("a", 60)
 	value := []entities.TransferRankItem{
