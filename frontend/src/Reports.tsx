@@ -151,7 +151,9 @@ function ReportCard({ title, report, highlightTopRanks = false }: { title: strin
     timeZone: report.timezone,
     year: 'numeric', month: 'numeric', day: 'numeric',
   })
-  const period = `${formatter.format(new Date(report.period_start))} – ${formatter.format(new Date(report.period_end))}`
+  const period = report.period_type === 'daily'
+    ? formatter.format(new Date(report.period_start))
+    : `${formatter.format(new Date(report.period_start))} – ${formatter.format(new Date(report.period_end))}`
 
   return (
     <Card>

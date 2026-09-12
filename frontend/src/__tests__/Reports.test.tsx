@@ -18,7 +18,7 @@ describe('ReportsPage', () => {
     vi.clearAllMocks()
     getSettings.mockResolvedValue({ data: settings })
     getLatest.mockResolvedValue({ data: { daily: report, weekly: null } })
-    getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete', upload: [1, 2, 3, 4, 5].map((rank) => ({ rank, name: `Current ${rank}`, hash: `current-${rank}`, bytes: rank * 1024 })) }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', coverage: 'complete' } } })
+    getCurrent.mockResolvedValue({ data: { daily: { ...report, uuid: 'current-daily', coverage: 'complete', upload: [1, 2, 3, 4, 5].map((rank) => ({ rank, name: `Current ${rank}`, hash: `current-${rank}`, bytes: rank * 1024 })) }, weekly: { ...report, uuid: 'current-weekly', period_type: 'weekly', period_start: '2026-08-26T03:00:00Z', coverage: 'complete' } } })
     updateSettings.mockResolvedValue({ data: { ...settings, snapshots_per_day: 6 } })
     captureSnapshot.mockResolvedValue({ data: null })
     sendDiscord.mockResolvedValue({ data: { delivered: 2 } })
@@ -52,6 +52,14 @@ describe('ReportsPage', () => {
     await screen.findAllByText('Alpha')
     expect(formatter.mock.calls.some(([, options]) => options?.timeZone === 'America/Sao_Paulo')).toBe(true)
     formatter.mockRestore()
+  })
+
+  it('shows one date for daily cards and a range for weekly cards', async () => {
+    const user = userEvent.setup()
+    render(<ReportsPage />)
+    expect((await screen.findAllByText('9/1/2026 · America/Sao_Paulo')).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('tab', { name: 'Weekly' }))
+    expect(screen.getByText('8/26/2026 – 9/2/2026 · America/Sao_Paulo')).toBeInTheDocument()
   })
 
   it('previews the Discord embed for each available report', async () => {
