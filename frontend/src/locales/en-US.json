@@ -1744,6 +1744,7 @@
     "sendDiscord": "Send to Discord",
     "sendingDiscord": "Sending…",
     "discordSent": "Sent to {{count}} Discord destinations.",
+    "discordDeliveryUnconfirmed": "Discord did not confirm delivery. Reload this page and try again.",
     "discordSendFailed": "Could not send the notification to Discord.",
     "current": "Current snapshot rankings",
     "configure": "Configure",

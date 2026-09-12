@@ -231,8 +231,12 @@ export default function ReportsPage() {
     setSendingDiscord(true)
     try {
       const result = await transferReportsService.sendDiscord(source, periodType)
-      if (result.data) toast.success(t('reports.discordSent', 'Sent to {{count}} Discord destinations.', { count: result.data.delivered }))
-      else toast.error(result.error || t('reports.discordSendFailed', 'Could not send the notification to Discord.'))
+      if (typeof result.data?.delivered === 'number' && result.data.delivered > 0) {
+        toast.success(t('reports.discordSent', 'Sent to {{count}} Discord destinations.', { count: result.data.delivered }))
+      } else {
+        const deliveryStatus = result.status ? ` (HTTP ${result.status})` : ''
+        toast.error(result.error || `${t('reports.discordDeliveryUnconfirmed', 'Discord did not confirm delivery. Reload this page and try again.')}${deliveryStatus}`)
+      }
     } catch {
       toast.error(t('reports.discordSendFailed', 'Could not send the notification to Discord.'))
     } finally {

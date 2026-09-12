@@ -86,6 +86,15 @@ describe('ReportsPage', () => {
     expect(toast.success).toHaveBeenCalled()
   })
 
+  it('explains when the backend does not confirm a Discord delivery', async () => {
+    const user = userEvent.setup()
+    sendDiscord.mockResolvedValue({ data: null, status: 204 })
+    render(<ReportsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
+    await user.click(screen.getByRole('button', { name: 'Send to Discord' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Discord did not confirm delivery. Reload this page and try again. (HTTP 204)'))
+  })
+
   it('shows current rankings without requiring Discord', async () => {
     render(<ReportsPage />)
     expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()

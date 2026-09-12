@@ -1800,6 +1800,7 @@
     "sendDiscord": "Enviar para o Discord",
     "sendingDiscord": "Enviando…",
     "discordSent": "Enviado para {{count}} destinos do Discord.",
+    "discordDeliveryUnconfirmed": "O Discord não confirmou o envio. Recarregue esta página e tente novamente.",
     "discordSendFailed": "Não foi possível enviar a notificação para o Discord.",
     "current": "Rankings atuais dos snapshots",
     "configure": "Configurar",
