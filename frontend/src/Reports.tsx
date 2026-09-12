@@ -20,11 +20,30 @@ const initialSettings: TransferReportSettings = {
   enabled: true, snapshots_per_day: 4, daily_report_time: '00:05', weekly_report_day: 1, weekly_report_time: '00:10', top_n: 10,
 }
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const currentRankBackgrounds = ['[&>td]:bg-primary/25', '[&>td]:bg-primary/20', '[&>td]:bg-primary/15', '[&>td]:bg-primary/10', '[&>td]:bg-primary/5']
+function currentRankBackground(index: number): string {
+  switch (index) {
+    case 0: return '[&>td]:bg-primary/25'
+    case 1: return '[&>td]:bg-primary/20'
+    case 2: return '[&>td]:bg-primary/15'
+    case 3: return '[&>td]:bg-primary/10'
+    case 4: return '[&>td]:bg-primary/5'
+    default: return ''
+  }
+}
+
+function discordByteUnit(index: number): string {
+  switch (index) {
+    case 0: return 'B'
+    case 1: return 'KB'
+    case 2: return 'MB'
+    case 3: return 'GB'
+    default: return 'TB'
+  }
+}
 
 function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }: { title: string; icon: typeof Upload; items: TransferRankItem[]; empty: string; highlightTopRanks?: boolean }) {
   const { t } = useTranslation()
-  const highlightedRankCount = highlightTopRanks ? Math.min(items.length, currentRankBackgrounds.length) : 0
+  const highlightedRankCount = highlightTopRanks ? Math.min(items.length, 5) : 0
   return (
     <div className="space-y-3 rounded-lg border p-4">
       <div className="flex items-center gap-2 font-medium"><Icon className="h-4 w-4 text-primary" />{title}</div>
@@ -44,7 +63,7 @@ function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }:
                     ? '[&>td:first-child]:rounded-bl-md [&>td:last-child]:rounded-br-md'
                     : ''
                 return (
-                  <tr key={item.hash} data-testid={isHighlighted ? `current-ranking-row-${index + 1}` : undefined} className={`border-b last:border-0 ${isHighlighted ? currentRankBackgrounds[index] : ''} ${isHighlighted ? highlightCorners : ''}`}>
+                  <tr key={item.hash} data-testid={isHighlighted ? `current-ranking-row-${index + 1}` : undefined} className={`border-b last:border-0 ${isHighlighted ? currentRankBackground(index) : ''} ${isHighlighted ? highlightCorners : ''}`}>
                     <td className="px-3 py-2 text-muted-foreground">{item.rank}.</td>
                     <td className="min-w-0 px-3 py-2" title={item.name}><span className="block max-w-[16rem] truncate">{item.name || item.hash}</span></td>
                     <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{formatBytes(item.bytes)}</td>
@@ -60,14 +79,13 @@ function Ranking({ title, icon: Icon, items, empty, highlightTopRanks = false }:
 }
 
 function discordBytes(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let amount = bytes
   let index = 0
-  while (amount >= 1024 && index < units.length - 1) {
+  while (amount >= 1024 && index < 4) {
     amount /= 1024
     index += 1
   }
-  return `${amount.toFixed(amount >= 100 ? 0 : 1)} ${units[index]}`
+  return `${amount.toFixed(amount >= 100 ? 0 : 1)} ${discordByteUnit(index)}`
 }
 
 function discordTimestamp(value: string): string {
