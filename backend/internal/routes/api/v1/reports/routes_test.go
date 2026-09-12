@@ -13,6 +13,7 @@ import (
 	"github.com/jfxdev/gardarr/internal/entities"
 	"github.com/jfxdev/gardarr/internal/infra/database"
 	"github.com/jfxdev/gardarr/internal/models"
+	discordservice "github.com/jfxdev/gardarr/internal/services/discord"
 	transferreport "github.com/jfxdev/gardarr/internal/services/transferreport"
 )
 
@@ -28,14 +29,14 @@ type routeTimezone struct{}
 func (routeTimezone) GetTimezone(context.Context) (string, error) { return "UTC", nil }
 
 type routeDiscordDelivery struct {
-	event     *entities.Event
-	delivered int
-	err       error
+	event  *entities.Event
+	result discordservice.DeliveryResult
+	err    error
 }
 
-func (f *routeDiscordDelivery) Deliver(_ context.Context, event *entities.Event) (int, error) {
+func (f *routeDiscordDelivery) Deliver(_ context.Context, event *entities.Event) (discordservice.DeliveryResult, error) {
 	f.event = event
-	return f.delivered, f.err
+	return f.result, f.err
 }
 
 func reportsContext(t *testing.T, method, body string) (*gin.Context, *httptest.ResponseRecorder) {
@@ -51,7 +52,7 @@ func TestReportHandlersExposeSettingsAndLatestReports(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := database.SetupTestDB(t, &models.TransferReportSettings{}, &models.TransferSnapshotRun{}, &models.TransferSnapshot{}, &models.TransferReport{})
 	service := transferreport.NewService(db, routeWorkers{}, routeTimezone{}, nil)
-	delivery := &routeDiscordDelivery{delivered: 2}
+	delivery := &routeDiscordDelivery{result: discordservice.DeliveryResult{Delivered: 2, Outcomes: []discordservice.DeliveryOutcome{{Destination: "Reports", Delivered: true}}}}
 	module := NewModule(gin.New().Group("/v1"), db, service, delivery)
 	module.Register()
 
@@ -99,6 +100,13 @@ func TestReportHandlersExposeSettingsAndLatestReports(t *testing.T) {
 	module.sendDiscord(ctx)
 	if writer.Code != http.StatusOK || !bytes.Contains(writer.Body.Bytes(), []byte(`"delivered":2`)) || delivery.event == nil || delivery.event.Type != "report.transfer.daily" || delivery.event.Metadata["in_progress"] != true {
 		t.Fatalf("manual Discord response: %d %s event=%#v", writer.Code, writer.Body.String(), delivery.event)
+	}
+
+	delivery.result = discordservice.DeliveryResult{Delivered: 1, Failed: 1, FirstError: "discord returned status 400", Outcomes: []discordservice.DeliveryOutcome{{Destination: "Primary", Delivered: true}, {Destination: "Backup", Error: "discord returned status 400"}}}
+	ctx, writer = reportsContext(t, http.MethodPost, `{"source":"current","period_type":"daily"}`)
+	module.sendDiscord(ctx)
+	if writer.Code != http.StatusOK || !bytes.Contains(writer.Body.Bytes(), []byte(`"delivered":1`)) || !bytes.Contains(writer.Body.Bytes(), []byte(`"failed":1`)) || !bytes.Contains(writer.Body.Bytes(), []byte(`"destination":"Primary"`)) {
+		t.Fatalf("partial Discord response: %d %s", writer.Code, writer.Body.String())
 	}
 }
 

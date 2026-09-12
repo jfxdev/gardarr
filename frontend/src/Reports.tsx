@@ -121,6 +121,9 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
     ? (inProgress ? (portuguese ? 'Ranking de transferências até agora hoje.' : 'Top transfer activity so far today.') : (portuguese ? 'Ranking de transferências do dia encerrado.' : 'Top transfer activity for the completed day.'))
     : (inProgress ? (portuguese ? 'Ranking de transferências até agora nesta semana.' : 'Top transfer activity so far this week.') : (portuguese ? 'Ranking de transferências da semana encerrada.' : 'Top transfer activity for the completed week.'))
   const empty = portuguese ? 'Nenhuma movimentação registrada.' : 'No movement recorded.'
+  const uploadLabel = t('reports.upload', 'Upload')
+  const downloadLabel = t('reports.download', 'Download')
+  const unavailableWorkersLabel = t('reports.unavailableWorkers', 'Unavailable workers')
 
   return (
     <section data-testid={`discord-preview-${inProgress ? 'current-' : ''}${report.period_type}`} className="rounded-md bg-[#313338] p-3 text-[#dbdee1] shadow-sm">
@@ -129,9 +132,9 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
         <p className="font-semibold text-white">{title}</p>
         <p className="mt-1 text-sm text-[#b5bac1]">{description}</p>
         <dl className="mt-3 grid gap-3 text-sm">
-          <div><dt className="font-semibold text-white">Upload</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.upload} empty={empty} /></dd></div>
-          <div><dt className="font-semibold text-white">Download</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.download} empty={empty} /></dd></div>
-          {report.unavailable_workers.length > 0 && <div><dt className="font-semibold text-white">Unavailable workers</dt><dd className="mt-1 break-all text-[#dbdee1]">[{report.unavailable_workers.join(' ')}]</dd></div>}
+          <div><dt className="font-semibold text-white">{uploadLabel}</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.upload} empty={empty} /></dd></div>
+          <div><dt className="font-semibold text-white">{downloadLabel}</dt><dd className="mt-1 text-[#dbdee1]"><DiscordRanking items={report.download} empty={empty} /></dd></div>
+          {report.unavailable_workers.length > 0 && <div><dt className="font-semibold text-white">{unavailableWorkersLabel}</dt><dd className="mt-1 break-all text-[#dbdee1]">[{report.unavailable_workers.join(' ')}]</dd></div>}
         </dl>
         <p className="mt-3 text-xs text-[#b5bac1]">{discordTimestamp(report.generated_at)}</p>
       </div>
@@ -246,9 +249,10 @@ export default function ReportsPage() {
       const result = await transferReportsService.sendDiscord(source, periodType)
       if (typeof result.data?.delivered === 'number' && result.data.delivered > 0) {
         toast.success(t('reports.discordSent', 'Sent to {{count}} Discord destinations.', { count: result.data.delivered }))
+        if (result.data.failed > 0) toast.error(t('reports.discordPartiallySent', '{{count}} Discord destinations failed to receive this report.', { count: result.data.failed }))
       } else {
         const deliveryStatus = result.status ? ` (HTTP ${result.status})` : ''
-        toast.error(result.error || `${t('reports.discordDeliveryUnconfirmed', 'Discord did not confirm delivery. Reload this page and try again.')}${deliveryStatus}`)
+        toast.error(result.error || result.data?.first_error || `${t('reports.discordDeliveryUnconfirmed', 'Discord did not confirm delivery. Reload this page and try again.')}${deliveryStatus}`)
       }
     } catch {
       toast.error(t('reports.discordSendFailed', 'Could not send the notification to Discord.'))

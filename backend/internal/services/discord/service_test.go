@@ -93,12 +93,29 @@ func TestDeliverSendsMatchingDiscordDestinations(t *testing.T) {
 	id := uuid.New()
 	service.destinations[id] = &destination{integration: &entities.DiscordIntegration{UUID: id, AllEvents: false, EventTypes: []string{constants.EventTypeTransferReportDaily}}, webhookURL: server.URL}
 
-	delivered, err := service.Deliver(ctx, &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, Metadata: map[string]interface{}{"upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}, CreatedAt: time.Now()})
-	if err != nil || delivered != 1 || calls.Load() != 1 {
-		t.Fatalf("manual delivery = %d, err=%v, calls=%d", delivered, err, calls.Load())
+	result, err := service.Deliver(ctx, &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, Metadata: map[string]interface{}{"upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}, CreatedAt: time.Now()})
+	if err != nil || result.Delivered != 1 || result.Failed != 0 || len(result.Outcomes) != 1 || !result.Outcomes[0].Delivered || calls.Load() != 1 {
+		t.Fatalf("manual delivery = %#v, err=%v, calls=%d", result, err, calls.Load())
 	}
 	if _, err := service.Deliver(ctx, &entities.Event{Type: constants.EventTypeTransferReportWeekly}); !errors.Is(err, ErrNoMatchingDestinations) {
 		t.Fatalf("expected no matching destination error, got %v", err)
+	}
+}
+
+func TestDeliverPreservesPartialDestinationResults(t *testing.T) {
+	service, ctx, cancel := testDiscordService(t)
+	defer cancel()
+	service.maxRetries = 1
+	success := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	defer success.Close()
+	failure := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadRequest) }))
+	defer failure.Close()
+	service.destinations[uuid.New()] = &destination{integration: &entities.DiscordIntegration{Name: "Delivered", AllEvents: true}, webhookURL: success.URL}
+	service.destinations[uuid.New()] = &destination{integration: &entities.DiscordIntegration{Name: "Failed", AllEvents: true}, webhookURL: failure.URL}
+
+	result, err := service.Deliver(ctx, &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, CreatedAt: time.Now()})
+	if err != nil || result.Delivered != 1 || result.Failed != 1 || len(result.Outcomes) != 2 || result.FirstError == "" {
+		t.Fatalf("partial delivery = %#v, err=%v", result, err)
 	}
 }
 

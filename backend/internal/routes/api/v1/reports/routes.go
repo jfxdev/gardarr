@@ -15,7 +15,7 @@ import (
 )
 
 type discordDelivery interface {
-	Deliver(context.Context, *entities.Event) (int, error)
+	Deliver(context.Context, *entities.Event) (discordservice.DeliveryResult, error)
 }
 
 type Module struct {
@@ -33,11 +33,13 @@ func (m *Module) Register() {
 	protected := m.group.Group("")
 	protected.Use(middlewares.SessionMiddleware(m.db))
 	protected.GET("/settings", m.getSettings)
-	protected.PUT("/settings", m.updateSettings)
 	protected.GET("/latest", m.getLatest)
 	protected.GET("/current", m.getCurrent)
-	protected.POST("/snapshot", m.captureSnapshot)
-	protected.POST("/send-discord", m.sendDiscord)
+	writes := protected.Group("")
+	writes.Use(middlewares.TrustedOrigin())
+	writes.PUT("/settings", m.updateSettings)
+	writes.POST("/snapshot", m.captureSnapshot)
+	writes.POST("/send-discord", m.sendDiscord)
 }
 
 func (m *Module) getSettings(c *gin.Context) {
@@ -108,16 +110,16 @@ func (m *Module) sendDiscord(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare transfer report notification"})
 		return
 	}
-	delivered, err := m.discord.Deliver(c.Request.Context(), transferreport.BuildNotificationEvent(report, inProgress))
+	result, err := m.discord.Deliver(c.Request.Context(), transferreport.BuildNotificationEvent(report, inProgress))
 	if errors.Is(err, discordservice.ErrNoMatchingDestinations) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "No matching enabled Discord destinations"})
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Could not send Discord notification"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not prepare Discord delivery"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"delivered": delivered})
+	c.JSON(http.StatusOK, result)
 }
 
 func settingsResponse(settings *entities.TransferReportSettings) gin.H {

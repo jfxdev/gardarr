@@ -95,6 +95,16 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Discord did not confirm delivery. Reload this page and try again. (HTTP 204)'))
   })
 
+  it('reports partial Discord delivery without treating it as a full failure', async () => {
+    const user = userEvent.setup()
+    sendDiscord.mockResolvedValue({ data: { delivered: 1, failed: 1, outcomes: [{ destination: 'Primary', delivered: true }, { destination: 'Backup', delivered: false, error: 'discord returned status 400' }] } })
+    render(<ReportsPage />)
+    await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
+    await user.click(screen.getByRole('button', { name: 'Send to Discord' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Sent to {{count}} Discord destinations.'))
+    expect(toast.error).toHaveBeenCalledWith('{{count}} Discord destinations failed to receive this report.')
+  })
+
   it('shows current rankings without requiring Discord', async () => {
     render(<ReportsPage />)
     expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()

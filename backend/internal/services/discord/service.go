@@ -34,6 +34,24 @@ const (
 
 var ErrNoMatchingDestinations = errors.New("no matching enabled Discord destinations")
 
+// DeliveryOutcome records the result for one Discord destination. Destination
+// names are already visible to authenticated users; webhook URLs are never
+// included in this response.
+type DeliveryOutcome struct {
+	Destination string `json:"destination"`
+	Delivered   bool   `json:"delivered"`
+	Error       string `json:"error,omitempty"`
+}
+
+// DeliveryResult lets callers distinguish a partial delivery from a complete
+// failure, preventing retries from duplicating notifications already sent.
+type DeliveryResult struct {
+	Delivered  int               `json:"delivered"`
+	Failed     int               `json:"failed"`
+	FirstError string            `json:"first_error,omitempty"`
+	Outcomes   []DeliveryOutcome `json:"outcomes"`
+}
+
 type Input struct {
 	Name           string
 	WebhookURL     string
@@ -191,9 +209,9 @@ func (s *Service) dispatch(ctx context.Context, event *entities.Event) {
 // Deliver sends an event immediately to the enabled Discord destinations that
 // match it. Unlike the event subscriber path, callers receive a delivery
 // result suitable for an explicit user action.
-func (s *Service) Deliver(ctx context.Context, event *entities.Event) (int, error) {
+func (s *Service) Deliver(ctx context.Context, event *entities.Event) (DeliveryResult, error) {
 	if event == nil {
-		return 0, errors.New("Discord event is required")
+		return DeliveryResult{}, errors.New("Discord event is required")
 	}
 	s.mu.RLock()
 	targets := make([]target, 0, len(s.destinations))
@@ -202,21 +220,28 @@ func (s *Service) Deliver(ctx context.Context, event *entities.Event) (int, erro
 	}
 	s.mu.RUnlock()
 
-	delivered := 0
-	var deliveryErr error
+	result := DeliveryResult{Outcomes: make([]DeliveryOutcome, 0, len(targets))}
 	for _, target := range targets {
 		if !matches(target.integration, event) {
 			continue
 		}
-		delivered++
-		if err := s.deliverNow(ctx, target.id, target.webhookURL, event); err != nil && deliveryErr == nil {
-			deliveryErr = err
+		outcome := DeliveryOutcome{Destination: target.integration.Name}
+		if err := s.deliverNow(ctx, target.id, target.webhookURL, event); err != nil {
+			outcome.Error = err.Error()
+			result.Failed++
+			if result.FirstError == "" {
+				result.FirstError = outcome.Error
+			}
+		} else {
+			outcome.Delivered = true
+			result.Delivered++
 		}
+		result.Outcomes = append(result.Outcomes, outcome)
 	}
-	if delivered == 0 {
-		return 0, ErrNoMatchingDestinations
+	if len(result.Outcomes) == 0 {
+		return DeliveryResult{}, ErrNoMatchingDestinations
 	}
-	return delivered, deliveryErr
+	return result, nil
 }
 
 func (s *Service) Create(ctx context.Context, input Input) (*entities.DiscordIntegration, error) {
