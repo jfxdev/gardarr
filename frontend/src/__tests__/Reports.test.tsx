@@ -110,7 +110,7 @@ describe('ReportsPage', () => {
     expect(await screen.findByText('Current snapshot rankings')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Daily' })).toHaveAttribute('data-state', 'active')
     expect(screen.getByRole('tab', { name: 'Weekly' })).toBeInTheDocument()
-    expect(screen.getByText('Live values calculated from stored snapshots. Discord is not required.')).toBeInTheDocument()
+    expect(screen.getByText('Live rankings from saved snapshots.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Notification Preview' }))
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('Top transfer activity so far today.')
     expect(screen.getByTestId('discord-preview-current-daily')).toHaveTextContent('🥇 Current 1 — 1.0 KB')

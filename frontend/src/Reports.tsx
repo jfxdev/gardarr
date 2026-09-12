@@ -155,13 +155,13 @@ function ReportCard({ title, report, highlightTopRanks = false }: { title: strin
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-3">
-          <div><CardTitle>{title}</CardTitle><CardDescription>{period} · {report.timezone}</CardDescription></div>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><CardTitle>{title}</CardTitle><CardDescription>{period} · {report.timezone}</CardDescription></div>
           <Badge variant={report.coverage === 'complete' ? 'secondary' : 'outline'}>{report.coverage}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-0">
         {report.unavailable_workers.length > 0 && <p className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400"><AlertTriangle className="h-4 w-4" />{t('reports.partial', 'Some workers were unavailable.')}</p>}
         <div className="grid gap-3 lg:grid-cols-2">
           <Ranking title={t('reports.upload', 'Upload')} icon={Upload} items={report.upload} empty={t('reports.noUpload', 'No upload movement available for this period.')} highlightTopRanks={highlightTopRanks} />
@@ -307,7 +307,7 @@ export default function ReportsPage() {
       {loading ? <p className="text-sm text-muted-foreground">{t('common.loading', 'Loading…')}</p> : (
         <div className="space-y-8">
           <section className="space-y-4">
-            <div><h2 className="text-lg font-semibold">{t('reports.current', 'Current snapshot rankings')}</h2><p className="text-sm text-muted-foreground">{t('reports.currentDescription', 'Live values calculated from stored snapshots. Discord is not required.')}</p><p className="mt-1 text-sm text-muted-foreground">{t('reports.baselineHint', 'The first snapshot establishes a baseline; capture another after transfer activity to calculate movement.')}</p></div>
+            <div><h2 className="text-lg font-semibold">{t('reports.current', 'Current snapshot rankings')}</h2><p className="text-sm text-muted-foreground">{t('reports.currentDescription', 'Live rankings from saved snapshots.')}</p></div>
             <Tabs defaultValue="daily">
               <TabsList aria-label={t('reports.currentPeriod', 'Current report period')}>
                 <TabsTrigger value="daily">{t('reports.currentDaily', 'Daily')}</TabsTrigger>
