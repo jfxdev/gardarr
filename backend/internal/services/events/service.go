@@ -119,6 +119,23 @@ func (s *Service) Record(ctx context.Context, event *entities.Event) error {
 	return nil
 }
 
+// RecordIfNew persists and broadcasts an event only when its UUID has not
+// already been stored. It is safe for durable producers to retry.
+func (s *Service) RecordIfNew(ctx context.Context, event *entities.Event) (bool, error) {
+	if event.UUID == uuid.Nil {
+		event.UUID = uuid.New()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now().UTC()
+	}
+	created, err := s.repo.CreateEventIfAbsent(ctx, event)
+	if err != nil || !created {
+		return created, err
+	}
+	s.broadcastEvent(event)
+	return true, nil
+}
+
 // broadcastEvent sends an event to all subscribers non-blocking
 func (s *Service) broadcastEvent(event *entities.Event) {
 	s.mu.RLock()

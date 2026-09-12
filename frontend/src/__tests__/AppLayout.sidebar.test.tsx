@@ -19,7 +19,7 @@ vi.mock("lucide-react", () => {
   return {
     Settings: Stub, Users: Stub, ArrowDownUp: Stub, Menu: Stub, Sun: Stub, Moon: Stub,
     Info: Stub, LogOut: Stub, FolderOpen: Stub, UserCircle: Stub, Server: Stub,
-    Plug: Stub, History: Stub, Tag: Stub, Rss: Stub,
+    Plug: Stub, History: Stub, Tag: Stub, Rss: Stub, BarChart3: Stub,
   };
 });
 

@@ -796,6 +796,32 @@ func Register(m *migration.Migrator) {
 			},
 			Down: func(_ *gorm.DB) error { return nil },
 		},
+		{
+			Version:     "042_create_transfer_reports_tables",
+			Description: "Cria snapshots de transferência e relatórios de atividade",
+			Up: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(&models.TransferReportSettings{}); err != nil {
+					return err
+				}
+				if err := db.AutoMigrate(&models.TransferSnapshotRun{}, &models.TransferSnapshot{}); err != nil {
+					return err
+				}
+				return db.AutoMigrate(&models.TransferReport{})
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(&models.TransferReport{}, &models.TransferSnapshot{}, &models.TransferSnapshotRun{}, &models.TransferReportSettings{})
+			},
+		},
+		{
+			Version:     "043_create_discord_integrations_tables",
+			Description: "Cria destinos Discord e histórico de entregas",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(&models.DiscordIntegration{}, &models.DiscordDeliveryHistory{})
+			},
+			Down: func(db *gorm.DB) error {
+				return db.Migrator().DropTable(&models.DiscordDeliveryHistory{}, &models.DiscordIntegration{})
+			},
+		},
 	})
 }
 

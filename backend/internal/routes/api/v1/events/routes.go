@@ -87,6 +87,8 @@ func (m *Module) listEvents(c *gin.Context) {
 		eventTypes = constants.TorrentEventTypes
 	case group == "schedule":
 		eventTypes = constants.ScheduleEventTypes
+	case group == "report":
+		eventTypes = constants.ReportEventTypes
 	}
 
 	// Get events from service

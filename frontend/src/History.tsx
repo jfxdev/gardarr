@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, RefreshCw, Download, Server, Gauge } from 'lucide-react';
+import { Activity, RefreshCw, Download, Server, Gauge, BarChart3 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventList } from '@/components/EventList';
@@ -15,6 +15,7 @@ export default function HistoryPage() {
   const torrentEvents = useEventHistory('torrent');
   const workerEvents = useEventHistory('worker');
   const scheduleEvents = useEventHistory('schedule');
+  const reportEvents = useEventHistory('report');
 
   useEffect(() => {
     workerService.listWorkersBasic().then((response) => {
@@ -27,11 +28,12 @@ export default function HistoryPage() {
     });
   }, []);
 
-  const isRefreshing = torrentEvents.isLoading || workerEvents.isLoading || scheduleEvents.isLoading;
+  const isRefreshing = torrentEvents.isLoading || workerEvents.isLoading || scheduleEvents.isLoading || reportEvents.isLoading;
   const refreshAll = () => {
     torrentEvents.refresh();
     workerEvents.refresh();
     scheduleEvents.refresh();
+    reportEvents.refresh();
   };
 
   return (
@@ -60,7 +62,7 @@ export default function HistoryPage() {
       <Card>
         <CardContent className="p-4 sm:p-6">
           <Tabs defaultValue="torrent">
-            <TabsList className="grid w-full grid-cols-3 max-w-lg">
+            <TabsList className="grid w-full grid-cols-4 max-w-2xl">
               <TabsTrigger value="torrent" className="gap-2">
                 <Download className="h-4 w-4" />
                 {t('history.groups.torrent') || 'Torrent events'}
@@ -72,6 +74,10 @@ export default function HistoryPage() {
               <TabsTrigger value="schedule" className="gap-2">
                 <Gauge className="h-4 w-4" />
                 {t('history.groups.schedule') || 'Schedule events'}
+              </TabsTrigger>
+              <TabsTrigger value="report" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                {t('history.groups.report', 'Reports')}
               </TabsTrigger>
             </TabsList>
 
@@ -85,6 +91,9 @@ export default function HistoryPage() {
 
             <TabsContent value="schedule" className="mt-4">
               <EventList group="schedule" {...scheduleEvents} />
+            </TabsContent>
+            <TabsContent value="report" className="mt-4">
+              <EventList group="report" {...reportEvents} />
             </TabsContent>
           </Tabs>
         </CardContent>

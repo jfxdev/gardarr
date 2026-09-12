@@ -14,6 +14,7 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   errorDetails?: ResponseError;
+  status?: number;
 }
 
 export interface RequestConfig {
@@ -68,7 +69,7 @@ class ApiClient {
 
       // Handle 204 No Content responses (no body to parse)
       if (response.status === 204) {
-        return { data: null as T };
+        return { data: null as T, status: response.status };
       }
 
       // Check if response has content to parse
@@ -83,29 +84,32 @@ class ApiClient {
             return {
               error: getErrorMessage(data) || `HTTP error! status: ${response.status}`,
               errorDetails: data,
-              data: undefined
+              data: undefined,
+              status: response.status,
             };
           }
 
           // Fallback for other error formats
           return {
             error: getErrorMessage(data) || `HTTP error! status: ${response.status}`,
-            data: undefined
+            data: undefined,
+            status: response.status,
           };
         }
 
-        return { data };
+        return { data, status: response.status };
       } else {
         if (!response.ok) {
           const text = await response.text();
           return {
             error: text || `HTTP error! status: ${response.status}`,
-            data: undefined
+            data: undefined,
+            status: response.status,
           };
         }
         // For non-JSON responses, return the response text or null
         const text = await response.text();
-        return { data: (text || null) as T };
+        return { data: (text || null) as T, status: response.status };
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {

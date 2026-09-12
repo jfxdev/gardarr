@@ -32,7 +32,7 @@ func (e *Event) BeforeCreate(tx *gorm.DB) (err error) {
 // EventResponse represents the response body for event operations
 type EventResponse struct {
 	UUID      string                 `json:"uuid"`
-	WorkerID  string                 `json:"worker_id"`
+	WorkerID  string                 `json:"worker_id,omitempty"`
 	Type      string                 `json:"type"`
 	TaskHash  string                 `json:"task_hash,omitempty"`
 	OldValue  string                 `json:"old_value,omitempty"`

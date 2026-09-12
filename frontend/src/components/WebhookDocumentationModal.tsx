@@ -41,6 +41,18 @@ export function WebhookDocumentationModal({ isOpen, onClose }: WebhookDocumentat
       fields: ['new_value', 'task_hash'],
       metadata: ['name', 'ratio', 'size', 'category'],
     },
+    {
+      type: 'report.transfer.daily',
+      description: 'Fired after the daily transfer ranking is generated',
+      fields: [],
+      metadata: ['period_start', 'period_end', 'timezone', 'coverage', 'upload', 'download', 'unavailable_workers'],
+    },
+    {
+      type: 'report.transfer.weekly',
+      description: 'Fired after the weekly transfer ranking is generated',
+      fields: [],
+      metadata: ['period_start', 'period_end', 'timezone', 'coverage', 'upload', 'download', 'unavailable_workers'],
+    },
   ];
 
   const torrentStatesConfig = [
@@ -77,6 +89,13 @@ export function WebhookDocumentationModal({ isOpen, onClose }: WebhookDocumentat
     { field: 'tags', type: 'string[]', description: 'Array of tags' },
     { field: 'directory', type: 'string', description: 'Download directory path' },
     { field: 'hash', type: 'string', description: 'Torrent info hash' },
+    { field: 'period_start', type: 'string (RFC 3339)', description: 'Start of the transfer-report period in UTC' },
+    { field: 'period_end', type: 'string (RFC 3339)', description: 'End of the transfer-report period in UTC' },
+    { field: 'timezone', type: 'string', description: 'IANA timezone used to calculate the report period' },
+    { field: 'coverage', type: 'string', description: 'Report coverage: complete, partial, or unavailable' },
+    { field: 'upload', type: 'TransferRanking[]', description: 'Upload ranking. Each entry contains rank (number), name (string), hash (string), and bytes (number).' },
+    { field: 'download', type: 'TransferRanking[]', description: 'Download ranking. Each entry contains rank (number), name (string), hash (string), and bytes (number).' },
+    { field: 'unavailable_workers', type: 'string[]', description: 'Worker IDs unavailable while collecting the report' },
   ];
 
   return (
@@ -272,6 +291,7 @@ export function WebhookDocumentationModal({ isOpen, onClose }: WebhookDocumentat
                     <li><code className="bg-background px-1 rounded">string</code> - Text value</li>
                     <li><code className="bg-background px-1 rounded">number</code> - Numeric value (integer or float)</li>
                     <li><code className="bg-background px-1 rounded">string[]</code> - Array of text values</li>
+                    <li><code className="bg-background px-1 rounded">TransferRanking[]</code> - Ranked transfer entries with rank, name, hash, and bytes</li>
                   </ul>
                 </div>
               </CardContent>

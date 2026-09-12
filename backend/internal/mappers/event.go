@@ -3,6 +3,7 @@ package mappers
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	"github.com/jfxdev/gardarr/internal/entities"
 	"github.com/jfxdev/gardarr/internal/models"
 )
@@ -13,9 +14,8 @@ func ToEventResponse(event *entities.Event) *models.EventResponse {
 		return nil
 	}
 
-	return &models.EventResponse{
+	response := &models.EventResponse{
 		UUID:      event.UUID.String(),
-		WorkerID:  event.WorkerID.String(),
 		Type:      event.Type,
 		TaskHash:  event.TaskHash,
 		OldValue:  event.OldValue,
@@ -23,6 +23,10 @@ func ToEventResponse(event *entities.Event) *models.EventResponse {
 		Metadata:  event.Metadata,
 		CreatedAt: event.CreatedAt,
 	}
+	if event.WorkerID != uuid.Nil {
+		response.WorkerID = event.WorkerID.String()
+	}
+	return response
 }
 
 // ToEventEntity converts an event model to an entity

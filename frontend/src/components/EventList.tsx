@@ -6,7 +6,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { normalizeTaskStatus } from "@/utils/statusUtils";
 import { formatBytesPerSecond } from "@/utils/bytes";
-import { type EventType, type EventGroup, EVENT_TYPES_BY_GROUP } from "@/constants/eventTypes";
+import { type EventType, type EventGroup, EVENT_TYPES_BY_GROUP, REPORT_EVENT_TYPES } from "@/constants/eventTypes";
 import {
   Select,
   SelectContent,
@@ -35,13 +35,14 @@ import {
   WifiOff,
   Wifi,
   Server,
+  BarChart3,
 } from "lucide-react";
 
 export type FilterType = EventType | "all";
 
 export interface Event {
   uuid: string;
-  worker_id: string;
+  worker_id?: string;
   type: EventType;
   task_hash: string;
   old_value?: string;
@@ -133,6 +134,9 @@ export function EventList({
         return <WifiOff className="h-5 w-5" />;
       case "worker.recovered":
         return <Wifi className="h-5 w-5" />;
+      case "report.transfer.daily":
+      case "report.transfer.weekly":
+        return <BarChart3 className="h-5 w-5" />;
     }
   };
 
@@ -152,6 +156,9 @@ export function EventList({
         return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20";
       case "worker.recovered":
         return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+      case "report.transfer.daily":
+      case "report.transfer.weekly":
+        return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20";
     }
   };
 
@@ -171,9 +178,10 @@ export function EventList({
   };
 
   const isWorkerEvent = (type: EventType) => type === "worker.offline" || type === "worker.recovered";
+  const isReportEvent = (type: EventType) => REPORT_EVENT_TYPES.includes(type);
 
   const getWorkerLabel = (event: Event) =>
-    workerNames[event.worker_id] ?? event.worker_id;
+    event.worker_id ? (workerNames[event.worker_id] ?? event.worker_id) : t("history.table.subject", "System");
 
   const renderWorkerStatus = (oldValue?: string, newValue?: string) => {
     if (!oldValue || !newValue) return null;
@@ -211,6 +219,8 @@ export function EventList({
       "bandwidth.schedule_applied": t("history.badge.bandwidthScheduleApplied", "Bandwidth schedule applied"),
       "worker.offline": t("history.badge.workerOffline", "Worker offline"),
       "worker.recovered": t("history.badge.workerRecovered", "Worker recovered"),
+      "report.transfer.daily": t("history.badge.transferReportDaily", "Daily transfer report"),
+      "report.transfer.weekly": t("history.badge.transferReportWeekly", "Weekly transfer report"),
     };
 
     return typeMap[type];
@@ -336,9 +346,11 @@ export function EventList({
                       ? t("history.table.worker") || "Worker"
                       : group === "torrent"
                         ? t("history.table.torrent") || "Torrent"
-                        : group === "schedule"
-                          ? t("history.table.schedule") || "Schedule"
-                          : t("history.table.subject") || "Torrent / Worker"}
+                      : group === "schedule"
+                        ? t("history.table.schedule") || "Schedule"
+                        : group === "report"
+                          ? t("history.table.report") || "Report"
+                        : t("history.table.subject") || "Torrent / Worker"}
                   </th>
                   <th className="text-left font-semibold px-3 py-2 hidden md:table-cell">{t("history.table.change") || "Change"}</th>
                   <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">{t("history.table.time") || "Time"}</th>
@@ -368,6 +380,10 @@ export function EventList({
                       ) : event.type === "bandwidth.schedule_applied" ? (
                         <p className="font-medium text-foreground truncate" title={event.metadata?.schedule_name}>
                           {event.metadata?.schedule_name ?? t("history.badge.bandwidthScheduleApplied", "Bandwidth schedule applied")}
+                        </p>
+                      ) : isReportEvent(event.type) ? (
+                        <p className="font-medium text-foreground truncate">
+                          {getEventBadge(event.type)}
                         </p>
                       ) : event.metadata?.name ? (
                         <p className="font-medium text-foreground truncate" title={event.metadata.name}>

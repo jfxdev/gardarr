@@ -224,6 +224,8 @@ The platform features a robust event-driven architecture to keep you connected.
 
 Automatically tracks and persists torrent lifecycle events (state changes, additions, removals, completions) with configurable retention via `EVENT_RETENTION_DAYS`.
 
+Transfer Reports capture cumulative torrent upload/download counters on a configurable local-time schedule (four times per day by default), publish daily and weekly rankings, and retain raw snapshots for 15 days. Configure schedules at **Reports**; the latest daily and weekly report are also available as events and can be sent to Discord incoming webhooks from **Integrations**.
+
 **Features:**
 - Real-time event tracking and filtering by event type
 - Search by torrent name or hash with pagination

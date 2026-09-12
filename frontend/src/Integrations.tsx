@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Webhook, Bell, Plug, Monitor, BookOpen, Joystick, Activity, Gamepad2, Clapperboard } from 'lucide-react';
+import { Webhook, Bell, Plug, Monitor, BookOpen, Joystick, Activity, Gamepad2, Clapperboard, MessageCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { EventList } from '@/components/EventList';
 import { useEventHistory } from '@/hooks/useEventHistory';
@@ -159,6 +159,14 @@ export default function IntegrationsPage() {
       status: 'available'
     },
     {
+      id: 'discord',
+      name: 'Discord',
+      description: t('integrations.discord.description', 'Send Gardarr events and transfer reports to Discord channels'),
+      icon: MessageCircle,
+      category: 'notifications',
+      status: 'available'
+    },
+    {
       id: 'jellyfin',
       name: t('integrations.jellyfin.name'),
       description: t('integrations.jellyfin.description'),
@@ -297,14 +305,17 @@ export default function IntegrationsPage() {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    disabled={integration.id !== 'webhook'}
+                    disabled={integration.id !== 'webhook' && integration.id !== 'discord'}
                     onClick={() => {
                      if (integration.id === 'webhook') {
                       navigate('/integrations/webhooks');
-                    }
+                     }
+                     if (integration.id === 'discord') {
+                      navigate('/integrations/discord');
+                     }
                   }}
                   >
-                    {integration.id === 'webhook' 
+                    {integration.id === 'webhook' || integration.id === 'discord'
                       ? t('integrations.configure') 
                       : t('integrations.comingSoon')
                     }

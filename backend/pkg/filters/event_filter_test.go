@@ -442,6 +442,23 @@ func TestMatchesEventEventTypeFilterCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestMatchesEventLeavesSelectedTransferReportsUnaffectedByTorrentFilters(t *testing.T) {
+	filter := &entities.EventFilter{
+		EventTypeFilter: constants.EventTypeTransferReportDaily,
+		StatusFilter:    []string{"UPLOADING"},
+		CategoryFilter:  []string{"movies"},
+		NameTerms:       []string{"linux"},
+	}
+	event := &entities.Event{Type: constants.EventTypeTransferReportDaily}
+	if !MatchesEvent(filter, event) {
+		t.Fatal("selected transfer report should bypass torrent-only filters")
+	}
+	filter.EventTypeFilter = constants.EventTypeTransferReportWeekly
+	if MatchesEvent(filter, event) {
+		t.Fatal("different transfer report type should not match")
+	}
+}
+
 func TestMatchesEventEventTypeAndStatusFilterBothMatch(t *testing.T) {
 	filter := &entities.EventFilter{
 		UUID:            uuid.New(),

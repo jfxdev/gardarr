@@ -27,6 +27,11 @@ func MatchesEvent(filter *entities.EventFilter, event *entities.Event) bool {
 			return false
 		}
 	}
+	// Reports are global events. Torrent-only filters must not suppress them
+	// after their event type has been selected.
+	if strings.HasPrefix(event.Type, "report.") {
+		return true
+	}
 
 	// Check status filter (new_value)
 	if len(filter.StatusFilter) > 0 {

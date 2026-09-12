@@ -22,10 +22,12 @@ import (
 	"github.com/jfxdev/gardarr/internal/middlewares"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/auth"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/category"
+	discordRoutes "github.com/jfxdev/gardarr/internal/routes/api/v1/discord"
 	eventsRoutes "github.com/jfxdev/gardarr/internal/routes/api/v1/events"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/health"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/integrations"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/profile"
+	reportsRoutes "github.com/jfxdev/gardarr/internal/routes/api/v1/reports"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/settings"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/setup"
 	"github.com/jfxdev/gardarr/internal/routes/api/v1/signup"
@@ -39,6 +41,7 @@ import (
 	"github.com/jfxdev/gardarr/internal/schemas"
 	"github.com/jfxdev/gardarr/internal/services/bandwidthscheduler"
 	"github.com/jfxdev/gardarr/internal/services/crypto"
+	discordService "github.com/jfxdev/gardarr/internal/services/discord"
 	"github.com/jfxdev/gardarr/internal/services/eventpoller"
 	eventsService "github.com/jfxdev/gardarr/internal/services/events"
 	"github.com/jfxdev/gardarr/internal/services/integration"
@@ -46,6 +49,7 @@ import (
 	tmdbintegration "github.com/jfxdev/gardarr/internal/services/integrations/tmdb"
 	settingsService "github.com/jfxdev/gardarr/internal/services/settings"
 	metadata "github.com/jfxdev/gardarr/internal/services/task_metadata"
+	transferreport "github.com/jfxdev/gardarr/internal/services/transferreport"
 	websocketSvc "github.com/jfxdev/gardarr/internal/services/websocket"
 	"github.com/jfxdev/gardarr/internal/services/workermanager"
 	"github.com/spf13/cobra"
@@ -67,6 +71,8 @@ type routeDependencies struct {
 	metadata          *metadata.Service
 	integrations      *integration.Service
 	providerConfig    *integration.ProviderConfigService
+	transferReports   *transferreport.Service
+	discord           *discordService.Service
 	websocket         *websocketSvc.Hub
 }
 
@@ -181,6 +187,14 @@ func Run(cmd *cobra.Command, args []string) error {
 	bandwidthSchedulerSvc := bandwidthscheduler.NewService(db, workerSvc, settingsSvc, eventSvc)
 	bandwidthSchedulerSvc.Start(ctx)
 
+	// Subscribe Discord before report reconciliation: report events are
+	// broadcast live and are not replayed to subscribers created afterwards.
+	discordSvc := discordService.NewService(eventSvc.Subscribe(0), db, cryptoSvc, settingsSvc)
+	discordSvc.Start(ctx)
+
+	transferReportSvc := transferreport.NewService(db, workerSvc, settingsSvc, eventSvc)
+	transferReportSvc.Start(ctx)
+
 	// Periodic cleanup — enforces EVENT_RETENTION_DAYS and prunes stale task states
 	eventSvc.StartCleanupJob(ctx)
 
@@ -212,6 +226,8 @@ func Run(cmd *cobra.Command, args []string) error {
 		metadata:          metaSvc,
 		integrations:      integrationSvc,
 		providerConfig:    providerConfigSvc,
+		transferReports:   transferReportSvc,
+		discord:           discordSvc,
 		websocket:         wsHub,
 	}, allowedOrigins); err != nil {
 		return err
@@ -545,6 +561,8 @@ func setRoutes(dependencies routeDependencies, allowedOrigins []string) error {
 	signup.NewModule(v1, dependencies.db).Register()
 	setup.NewModule(v1, dependencies.db).Register()
 	settings.NewModule(v1, dependencies.db, dependencies.metadata).Register()
+	reportsRoutes.NewModule(v1, dependencies.db, dependencies.transferReports, dependencies.discord).Register()
+	discordRoutes.NewModule(v1, dependencies.db, dependencies.discord).Register()
 	version.NewModule(v1, dependencies.db).Register()
 	eventsModule, err := eventsRoutes.NewModule(v1, dependencies.db)
 	if err != nil {
