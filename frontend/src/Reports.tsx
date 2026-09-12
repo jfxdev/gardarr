@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Bell, Camera, Download, Save, Send, Settings2, Upload } from 'lucide-react'
+import { AlertTriangle, BarChart3, Bell, Camera, Download, Globe2, Save, Send, Settings2, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { transferReportsService } from '@/services/transferReports'
 import { settingsService } from '@/services/settings'
@@ -159,7 +160,18 @@ function ReportCard({ title, report, highlightTopRanks = false }: { title: strin
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><CardTitle>{title}</CardTitle><CardDescription>{period} · {report.timezone}</CardDescription></div>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{period}</CardDescription>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground transition-colors hover:text-foreground" aria-label={`Timezone: ${report.timezone}`}>
+                  <Globe2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={4}>{report.timezone}</TooltipContent>
+            </Tooltip>
+          </div>
           <Badge variant={report.coverage === 'complete' ? 'secondary' : 'outline'}>{report.coverage}</Badge>
         </div>
       </CardHeader>

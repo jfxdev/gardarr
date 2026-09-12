@@ -57,9 +57,11 @@ describe('ReportsPage', () => {
   it('shows one date for daily cards and a range for weekly cards', async () => {
     const user = userEvent.setup()
     render(<ReportsPage />)
-    expect((await screen.findAllByText('9/1/2026 · America/Sao_Paulo')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('9/1/2026')).length).toBeGreaterThan(0)
+    const timezoneButton = screen.getAllByRole('button', { name: 'Timezone: America/Sao_Paulo' })[0]
+    expect(timezoneButton).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Weekly' }))
-    expect(screen.getByText('8/26/2026 – 9/2/2026 · America/Sao_Paulo')).toBeInTheDocument()
+    expect(screen.getByText('8/26/2026 – 9/2/2026')).toBeInTheDocument()
   })
 
   it('previews the Discord embed for each available report', async () => {
