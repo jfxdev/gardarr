@@ -572,9 +572,9 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 		switch event.Type {
 		case constants.EventTypeTransferReportDaily:
 			if metadataBool(event, "in_progress") {
-				return "Gardarr · Relatório diário", "Ranking de transferências até agora hoje.", 0x5865F2
+				return reportTitle("Gardarr · Relatório diário", event), "Ranking de transferências até agora hoje.", 0x5865F2
 			}
-			return "Gardarr · Relatório diário", "Ranking de transferências do dia encerrado.", 0x5865F2
+			return reportTitle("Gardarr · Relatório diário", event), "Ranking de transferências do dia encerrado.", 0x5865F2
 		case constants.EventTypeTransferReportWeekly:
 			if metadataBool(event, "in_progress") {
 				return "Gardarr · Relatório semanal", "Ranking de transferências até agora nesta semana.", 0x5865F2
@@ -593,9 +593,9 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 	switch event.Type {
 	case constants.EventTypeTransferReportDaily:
 		if metadataBool(event, "in_progress") {
-			return "Gardarr · Daily transfer report", "Top transfer activity so far today.", 0x5865F2
+			return reportTitle("Gardarr · Daily transfer report", event), "Top transfer activity so far today.", 0x5865F2
 		}
-		return "Gardarr · Daily transfer report", "Top transfer activity for the completed day.", 0x5865F2
+		return reportTitle("Gardarr · Daily transfer report", event), "Top transfer activity for the completed day.", 0x5865F2
 	case constants.EventTypeTransferReportWeekly:
 		if metadataBool(event, "in_progress") {
 			return "Gardarr · Weekly transfer report", "Top transfer activity so far this week.", 0x5865F2
@@ -612,6 +612,20 @@ func eventTitle(event *entities.Event, language string) (string, string, int) {
 	default:
 		return "Gardarr · " + strings.ReplaceAll(event.Type, ".", " "), "A Gardarr event was emitted.", 0xFEE75C
 	}
+}
+
+func reportTitle(base string, event *entities.Event) string {
+	periodStart, err := time.Parse(time.RFC3339, metadataString(event, "period_start"))
+	if err != nil {
+		return base
+	}
+	location := time.UTC
+	if timezone := metadataString(event, "timezone"); timezone != "" {
+		if configured, err := time.LoadLocation(timezone); err == nil {
+			location = configured
+		}
+	}
+	return base + " · " + periodStart.In(location).Format("01/02/2006")
 }
 
 func reportFields(event *entities.Event, language string) []embedField {

@@ -67,9 +67,9 @@ func TestMatchesLeavesGlobalReportsUnaffectedByTorrentFilters(t *testing.T) {
 }
 
 func TestBuildPayloadRendersEmptyReportPlaceholder(t *testing.T) {
-	event := &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, CreatedAt: time.Now(), Metadata: map[string]interface{}{"period_start": "2026-09-01T00:00:00Z", "period_end": "2026-09-02T00:00:00Z", "coverage": "unavailable", "upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}}
+	event := &entities.Event{UUID: uuid.New(), Type: constants.EventTypeTransferReportDaily, CreatedAt: time.Now(), Metadata: map[string]interface{}{"period_start": "2026-09-01T03:00:00Z", "period_end": "2026-09-02T03:00:00Z", "timezone": "America/Sao_Paulo", "coverage": "unavailable", "upload": []entities.TransferRankItem{}, "download": []entities.TransferRankItem{}}}
 	payload := buildPayload(event, "pt-BR")
-	if payload.Embeds[0].Title != "Gardarr · Relatório diário" || len(payload.Embeds[0].Fields) != 2 || payload.Embeds[0].Fields[0].Name != "Upload" || payload.Embeds[0].Fields[1].Name != "Download" {
+	if payload.Embeds[0].Title != "Gardarr · Relatório diário · 09/01/2026" || len(payload.Embeds[0].Fields) != 2 || payload.Embeds[0].Fields[0].Name != "Upload" || payload.Embeds[0].Fields[1].Name != "Download" {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
 }

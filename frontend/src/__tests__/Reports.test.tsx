@@ -11,7 +11,7 @@ vi.mock('@/services/settings', () => ({ settingsService: { getLanguage } }))
 vi.mock('sonner', () => ({ toast }))
 
 const settings = { enabled: true, snapshots_per_day: 4, daily_report_time: '00:05', weekly_report_day: 1, weekly_report_time: '00:10', top_n: 10 }
-const report = { uuid: 'daily', period_type: 'daily', period_start: '2026-09-01T00:00:00Z', period_end: '2026-09-02T00:00:00Z', timezone: 'America/Sao_Paulo', generated_at: '2026-09-02T00:05:00Z', coverage: 'partial' as const, unavailable_workers: ['worker-1'], upload: [{ rank: 1, name: 'Alpha', hash: 'a', bytes: 2048 }], download: [] }
+const report = { uuid: 'daily', period_type: 'daily', period_start: '2026-09-01T03:00:00Z', period_end: '2026-09-02T03:00:00Z', timezone: 'America/Sao_Paulo', generated_at: '2026-09-02T00:05:00Z', coverage: 'partial' as const, unavailable_workers: ['worker-1'], upload: [{ rank: 1, name: 'Alpha', hash: 'a', bytes: 2048 }], download: [] }
 
 describe('ReportsPage', () => {
   beforeEach(() => {
@@ -62,7 +62,7 @@ describe('ReportsPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Daily report' }))
     expect(screen.getByRole('tab', { name: 'Daily report' })).toHaveAttribute('data-state', 'active')
     const preview = await screen.findByTestId('discord-preview-daily')
-    expect(preview).toHaveTextContent('Gardarr · Daily transfer report')
+    expect(preview).toHaveTextContent('Gardarr · Daily transfer report · 09/01/2026')
     expect(preview).toHaveTextContent('🥇 Alpha — 2.0 KB')
     expect(preview).not.toHaveTextContent('Period')
     expect(preview).not.toHaveTextContent('Coverage')
@@ -74,7 +74,7 @@ describe('ReportsPage', () => {
     render(<ReportsPage />)
     await user.click(await screen.findByRole('button', { name: 'Notification Preview' }))
     await user.click(screen.getByRole('tab', { name: 'Daily report' }))
-    expect(await screen.findByTestId('discord-preview-daily')).toHaveTextContent('Gardarr · Relatório diário')
+    expect(await screen.findByTestId('discord-preview-daily')).toHaveTextContent('Gardarr · Relatório diário · 09/01/2026')
   })
 
   it('sends the selected notification to Discord', async () => {

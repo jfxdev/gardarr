@@ -75,6 +75,18 @@ function discordTimestamp(value: string): string {
   return date.toISOString().replace('.000Z', 'Z')
 }
 
+function discordDailyReportDate(report: TransferReport): string {
+  const date = new Date(report.period_start)
+  if (Number.isNaN(date.getTime())) return ''
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: report.timezone, month: '2-digit', day: '2-digit', year: 'numeric' }).formatToParts(date)
+    const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+    return `${values.month}/${values.day}/${values.year}`
+  } catch {
+    return `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}/${date.getUTCFullYear()}`
+  }
+}
+
 function discordRankingMarker(rank: number): string {
   if (rank === 1) return '🥇'
   if (rank === 2) return '🥈'
@@ -101,9 +113,10 @@ function DiscordReportPreview({ report, language, inProgress = false }: { report
   const { t } = useTranslation()
   const portuguese = language === 'pt-BR'
   const daily = report.period_type === 'daily'
-  const title = daily
+  const baseTitle = daily
     ? (portuguese ? 'Gardarr · Relatório diário' : 'Gardarr · Daily transfer report')
     : (portuguese ? 'Gardarr · Relatório semanal' : 'Gardarr · Weekly transfer report')
+  const title = daily ? `${baseTitle} · ${discordDailyReportDate(report)}` : baseTitle
   const description = daily
     ? (inProgress ? (portuguese ? 'Ranking de transferências até agora hoje.' : 'Top transfer activity so far today.') : (portuguese ? 'Ranking de transferências do dia encerrado.' : 'Top transfer activity for the completed day.'))
     : (inProgress ? (portuguese ? 'Ranking de transferências até agora nesta semana.' : 'Top transfer activity so far this week.') : (portuguese ? 'Ranking de transferências da semana encerrada.' : 'Top transfer activity for the completed week.'))
