@@ -24,7 +24,12 @@ type Translate = TFunction
 export function getPrimaryNavigation(t: Translate): AppNavigationItem[] {
   return [
     { href: "/torrents", icon: ArrowDownUp, label: t("navigation.torrents") },
-    { href: "/workers", icon: Server, label: t("navigation.workers") },
+    {
+      href: "/workers",
+      icon: Server,
+      label: t("navigation.workers"),
+      activePrefixes: ["/worker/"],
+    },
     { href: "/history", icon: History, label: t("navigation.history") },
     { href: "/reports", icon: BarChart3, label: t("navigation.reports", { defaultValue: "Reports" }) },
   ]

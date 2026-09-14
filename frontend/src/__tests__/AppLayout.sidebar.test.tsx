@@ -195,7 +195,11 @@ describe("AppLayout dashboard-01 shell", () => {
     renderLayout("/worker/worker-1/task/task-1")
 
     expect(screen.queryByRole("link", { name: "navigation.dashboard" })).not.toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "navigation.dashboard" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "navigation.workers" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    )
+    expect(screen.getByRole("heading", { name: "navigation.workers" })).toBeInTheDocument()
   })
 
   it("shows account actions and gates administration links by role", () => {

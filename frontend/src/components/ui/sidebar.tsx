@@ -363,7 +363,9 @@ function SidebarRail({
     sidebar?.setAttribute("data-resizing", "true")
     document.body.style.cursor = "col-resize"
     document.body.style.userSelect = "none"
-    button.setPointerCapture(pointerId)
+    if (typeof button.setPointerCapture === "function") {
+      button.setPointerCapture(pointerId)
+    }
 
     const handlePointerMove = (pointerEvent: PointerEvent) => {
       const distance = pointerEvent.clientX - startX

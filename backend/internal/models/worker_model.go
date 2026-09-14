@@ -43,7 +43,7 @@ type BandwidthSchedule struct {
 	UploadLimit   int       `gorm:"not null"`
 	Priority      int       `gorm:"not null;default:0;index"`
 	Color         string    `gorm:"size:7;not null;default:'#64748b'"`
-	Enabled       bool      `gorm:"not null;default:true"`
+	Enabled       bool      `gorm:"not null"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 }
