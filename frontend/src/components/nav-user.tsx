@@ -23,7 +23,7 @@ function getEmailInitials(email: string): string {
   const parts = localPart.split(/[._-]+/).filter(Boolean)
 
   if (parts.length > 1) {
-    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase()
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
   }
 
   return localPart.slice(0, 2).toUpperCase()

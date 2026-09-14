@@ -299,10 +299,11 @@ describe("TorrentDetailsModal", () => {
 
     await waitFor(() => expect(mockListCategories).toHaveBeenCalled());
 
-    const event = { preventDefault: vi.fn() } as unknown as Event;
+    const preventDefault = vi.fn();
+    const event = { preventDefault } as unknown as Event;
     dialogContentProps.onOpenAutoFocus?.(event);
 
-    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(preventDefault).toHaveBeenCalledOnce();
     expect(dialogContentProps.className).toContain("h-[100dvh]");
     expect(dialogContentProps.className).toContain("!max-h-[100dvh]");
     expect(dialogContentProps.className).toContain("sm:!w-[80rem]");

@@ -21,36 +21,41 @@ const blank = (): Required<DiscordIntegrationInput> => ({
 
 const toTerms = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
 
-const EVENT_TYPE_GROUPS: readonly { group: Exclude<EventGroup, 'all'>; labelKey: string; defaultLabel: string }[] = [
-  { group: 'torrent', labelKey: 'discord.eventTypeGroup.torrents', defaultLabel: 'Torrents' },
-  { group: 'worker', labelKey: 'discord.eventTypeGroup.workers', defaultLabel: 'Workers' },
-  { group: 'schedule', labelKey: 'discord.eventTypeGroup.schedule', defaultLabel: 'Bandwidth schedule' },
-  { group: 'report', labelKey: 'discord.eventTypeGroup.reports', defaultLabel: 'Transfer reports' },
+const EVENT_TYPE_GROUPS: readonly { group: Exclude<EventGroup, 'all'>; labelKey: string; defaultLabel: string; types: readonly EventType[] }[] = [
+  { group: 'torrent', labelKey: 'discord.eventTypeGroup.torrents', defaultLabel: 'Torrents', types: EVENT_TYPES_BY_GROUP.torrent },
+  { group: 'worker', labelKey: 'discord.eventTypeGroup.workers', defaultLabel: 'Workers', types: EVENT_TYPES_BY_GROUP.worker },
+  { group: 'schedule', labelKey: 'discord.eventTypeGroup.schedule', defaultLabel: 'Bandwidth schedule', types: EVENT_TYPES_BY_GROUP.schedule },
+  { group: 'report', labelKey: 'discord.eventTypeGroup.reports', defaultLabel: 'Transfer reports', types: EVENT_TYPES_BY_GROUP.report },
 ]
 
-const EVENT_TYPE_ICONS: Record<EventType, LucideIcon> = {
-  'torrent.state_change': ArrowRightLeft,
-  'torrent.added': PlusCircle,
-  'torrent.removed': XCircle,
-  'torrent.completed': CheckCircle,
-  'bandwidth.schedule_applied': ArrowRightLeft,
-  'worker.offline': WifiOff,
-  'worker.recovered': Wifi,
-  'report.transfer.daily': BarChart3,
-  'report.transfer.weekly': BarChart3,
-}
+// Maps (not Records) so lookups use .get() instead of a computed member
+// expression - the latter trips security/detect-object-injection even though
+// `type` is always a closed EventType literal, never user input.
+const EVENT_TYPE_ICONS = new Map<EventType, LucideIcon>([
+  ['torrent.state_change', ArrowRightLeft],
+  ['torrent.added', PlusCircle],
+  ['torrent.removed', XCircle],
+  ['torrent.completed', CheckCircle],
+  ['bandwidth.schedule_applied', ArrowRightLeft],
+  ['worker.offline', WifiOff],
+  ['worker.recovered', Wifi],
+  ['report.transfer.daily', BarChart3],
+  ['report.transfer.weekly', BarChart3],
+])
 
-const EVENT_TYPE_ICON_COLORS: Record<EventType, string> = {
-  'torrent.state_change': 'text-amber-600 dark:text-amber-400',
-  'torrent.added': 'text-blue-600 dark:text-blue-400',
-  'torrent.removed': 'text-red-600 dark:text-red-400',
-  'torrent.completed': 'text-emerald-600 dark:text-emerald-400',
-  'bandwidth.schedule_applied': 'text-violet-600 dark:text-violet-400',
-  'worker.offline': 'text-red-600 dark:text-red-400',
-  'worker.recovered': 'text-emerald-600 dark:text-emerald-400',
-  'report.transfer.daily': 'text-orange-600 dark:text-orange-400',
-  'report.transfer.weekly': 'text-orange-600 dark:text-orange-400',
-}
+const EVENT_TYPE_ICON_COLORS = new Map<EventType, string>([
+  ['torrent.state_change', 'text-amber-600 dark:text-amber-400'],
+  ['torrent.added', 'text-blue-600 dark:text-blue-400'],
+  ['torrent.removed', 'text-red-600 dark:text-red-400'],
+  ['torrent.completed', 'text-emerald-600 dark:text-emerald-400'],
+  ['bandwidth.schedule_applied', 'text-violet-600 dark:text-violet-400'],
+  ['worker.offline', 'text-red-600 dark:text-red-400'],
+  ['worker.recovered', 'text-emerald-600 dark:text-emerald-400'],
+  ['report.transfer.daily', 'text-orange-600 dark:text-orange-400'],
+  ['report.transfer.weekly', 'text-orange-600 dark:text-orange-400'],
+])
+
+const EVENT_TYPE_LABEL_MAP = new Map<EventType, string>(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][])
 
 export default function IntegrationDiscordPage() {
   const { t } = useTranslation()
@@ -204,11 +209,11 @@ export default function IntegrationDiscordPage() {
                   <div className="space-y-2">
                     <Label>{t('discord.eventTypes', 'Event types')}</Label>
                     <div className="space-y-4">
-                      {EVENT_TYPE_GROUPS.map(({ group, labelKey, defaultLabel }) => (
+                      {EVENT_TYPE_GROUPS.map(({ group, labelKey, defaultLabel, types }) => (
                         <fieldset key={group} className="space-y-2">
                           <legend className="text-sm font-medium text-muted-foreground/80">{t(labelKey, defaultLabel)}</legend>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            {EVENT_TYPES_BY_GROUP[group].map((type) => (
+                            {types.map((type) => (
                               <EventTypeToggle key={type} type={type} pressed={form.event_types.includes(type)} onPressedChange={() => { toggleType(type) }} />
                             ))}
                           </div>
@@ -242,7 +247,7 @@ export default function IntegrationDiscordPage() {
 }
 
 function EventTypeToggle({ type, pressed, onPressedChange }: { type: EventType; pressed: boolean; onPressedChange: () => void }) {
-  const Icon = EVENT_TYPE_ICONS[type]
+  const Icon = EVENT_TYPE_ICONS.get(type) ?? ArrowRightLeft
 
   return (
     <Toggle
@@ -252,8 +257,8 @@ function EventTypeToggle({ type, pressed, onPressedChange }: { type: EventType; 
       className="cursor-pointer justify-start gap-2 data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
       onPressedChange={onPressedChange}
     >
-      <Icon className={`h-4 w-4 shrink-0 ${EVENT_TYPE_ICON_COLORS[type]}`} aria-hidden="true" />
-      {EVENT_TYPE_LABELS[type]}
+      <Icon className={`h-4 w-4 shrink-0 ${EVENT_TYPE_ICON_COLORS.get(type) ?? ''}`} aria-hidden="true" />
+      {EVENT_TYPE_LABEL_MAP.get(type) ?? type}
     </Toggle>
   )
 }
