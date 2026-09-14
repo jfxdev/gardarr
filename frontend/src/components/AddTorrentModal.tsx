@@ -24,6 +24,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { WorkerIcon } from "@/components/ui/WorkerIcon";
 import { SelectCategory } from "@/components/SelectCategory";
 import { SelectTags } from "@/components/SelectTags";
@@ -61,6 +63,7 @@ export function AddTorrentModal() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [category, setCategory] = useState("");
   const [directory, setDirectory] = useState("");
+  const [directoryDropdownOpen, setDirectoryDropdownOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [releaseSuggestion, setReleaseSuggestion] = useState<ReleaseParseResponse | null>(null);
@@ -99,6 +102,11 @@ export function AddTorrentModal() {
     [activeWorkers, selectedWorkerId]
   );
   const freeSpace = useMemo(() => selectedWorker?.instance?.server?.free_space_on_disk || 0, [selectedWorker]);
+  const selectedCategory = useMemo(
+    () => categories.find((item) => item.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  );
+  const categoryDirectories = selectedCategory?.default_directories || [];
 
   useEffect(() => {
     if (!isAddModalOpen) {
@@ -121,6 +129,7 @@ export function AddTorrentModal() {
     setCreateError("");
     setIsCreating(false);
     setWorkerDropdownOpen(false);
+    setDirectoryDropdownOpen(false);
 
     let cancelled = false;
     workerService
@@ -246,7 +255,7 @@ export function AddTorrentModal() {
         setCategory(categoryMatch.name);
         if (!userEdited.tags) setTags(mergeTags(categoryMatch.default_tags || [], suggestion.tags));
         if (!userEdited.directory) {
-          setDirectory(categoryMatch.default_directory || "");
+          setDirectory(categoryMatch.default_directories?.[0] || "");
         }
       }
     }
@@ -348,21 +357,31 @@ export function AddTorrentModal() {
     setErrors((current) => ({ ...current, category: "" }));
 
     if (categoryId && nextCategory) {
+      setCategories((current) => {
+        const existingIndex = current.findIndex((item) => item.id === nextCategory.id);
+        if (existingIndex < 0) {
+          return [...current, nextCategory];
+        }
+        return current.map((item) => item.id === nextCategory.id ? nextCategory : item);
+      });
       setCategory(nextCategory.name);
       setTags(mergeTags([...(nextCategory.default_tags || [])], releaseSuggestion?.tags || []));
-      setDirectory(nextCategory.default_directory || "");
+      setDirectory(nextCategory.default_directories?.[0] || "");
+      setDirectoryDropdownOpen(false);
       return;
     }
 
     setCategory("");
     setTags([]);
     setDirectory("");
+    setDirectoryDropdownOpen(false);
   };
 
   const handleWorkerChange = (workerId: string) => {
     setSelectedWorkerId(workerId);
     setErrors((current) => ({ ...current, worker: "" }));
     setWorkerDropdownOpen(false);
+    setDirectoryDropdownOpen(false);
   };
 
   const handleModeChange = (nextMode: string) => {
@@ -730,17 +749,60 @@ export function AddTorrentModal() {
                 <span className="ml-2 text-xs text-blue-600">({t("torrents.addModal.directory.autoFilled")})</span>
               )}
             </Label>
-            <Input
-              id="directory"
-              type="text"
-              placeholder={t("torrents.addModal.directory.placeholder")}
-              value={directory}
-              onChange={(event) => {
-                setUserEdited((current) => ({ ...current, directory: true }));
-                setDirectory(event.target.value);
-              }}
-              disabled={isBusy}
-            />
+            {categoryDirectories.length > 0 ? (
+              <Popover open={directoryDropdownOpen} onOpenChange={setDirectoryDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="directory"
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={directoryDropdownOpen}
+                    disabled={isBusy}
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">{directory || t("torrents.addModal.directory.select")}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t("torrents.addModal.directory.searchPlaceholder")} />
+                    <CommandList>
+                      <CommandEmpty>{t("torrents.addModal.directory.noResults")}</CommandEmpty>
+                      <CommandGroup>
+                        {categoryDirectories.map((categoryDirectory) => (
+                          <CommandItem
+                            key={categoryDirectory}
+                            value={categoryDirectory}
+                            onSelect={() => {
+                              setUserEdited((current) => ({ ...current, directory: true }));
+                              setDirectory(categoryDirectory);
+                              setDirectoryDropdownOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${directory === categoryDirectory ? "opacity-100" : "opacity-0"}`} />
+                            <span className="truncate font-mono">{categoryDirectory}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Input
+                id="directory"
+                type="text"
+                placeholder={t("torrents.addModal.directory.placeholder")}
+                value={directory}
+                onChange={(event) => {
+                  setUserEdited((current) => ({ ...current, directory: true }));
+                  setDirectory(event.target.value);
+                }}
+                disabled={isBusy}
+              />
+            )}
           </div>
 
           <SelectTags

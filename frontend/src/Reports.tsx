@@ -295,9 +295,11 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="rounded-lg bg-primary/10 p-2"><BarChart3 className="h-6 w-6 text-primary" /></div>
-        <div className="flex-1"><h1 className="text-2xl font-bold tracking-tight">{t('reports.title', 'Transfer reports')}</h1><p className="text-sm text-muted-foreground">{t('reports.subtitle', 'Periodic upload and download rankings from qBittorrent counters.')}</p></div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><BarChart3 className="h-6 w-6 text-primary" /></div>
+          <div><h1 className="text-2xl font-bold tracking-tight">{t('reports.title', 'Transfer reports')}</h1><p className="text-sm text-muted-foreground">{t('reports.subtitle', 'Periodic upload and download rankings from qBittorrent counters.')}</p></div>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => { void captureSnapshot() }} disabled={capturing || loading}><Camera className="mr-2 h-4 w-4" />{capturing ? t('reports.capturingSnapshot', 'Capturing…') : t('reports.captureSnapshot', 'Capture snapshot now')}</Button>
           <Button variant="outline" onClick={() => { setNotificationPreviewOpen(true) }} disabled={loading}><Bell className="mr-2 h-4 w-4" />{t('reports.notificationPreview', 'Notification Preview')}</Button>

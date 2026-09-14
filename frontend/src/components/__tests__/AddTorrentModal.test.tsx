@@ -90,6 +90,21 @@ vi.mock("@/components/ui/textarea", () => ({
   Textarea: (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
 }));
 
+vi.mock("@/components/ui/popover", () => ({
+  Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  PopoverContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("@/components/ui/command", () => ({
+  Command: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CommandEmpty: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CommandGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CommandInput: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
+  CommandItem: ({ children, onSelect }: { children: ReactNode; onSelect: () => void }) => <button type="button" onClick={onSelect}>{children}</button>,
+  CommandList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
 vi.mock("@/components/ui/WorkerIcon", () => ({
   WorkerIcon: () => <span aria-hidden="true" />,
 }));
@@ -99,7 +114,7 @@ vi.mock("@/components/SelectCategory", () => ({
     onCategoryChange,
     error,
   }: {
-    onCategoryChange: (categoryId: string, category?: { id: string; name: string; default_tags?: string[]; default_directory?: string }) => void;
+    onCategoryChange: (categoryId: string, category?: { id: string; name: string; default_tags?: string[]; default_directories?: string[] }) => void;
     error?: string;
   }) => (
     <div>
@@ -110,7 +125,7 @@ vi.mock("@/components/SelectCategory", () => ({
             id: "cat-1",
             name: "Games",
             default_tags: ["auto-tag"],
-            default_directory: "/downloads/games",
+            default_directories: ["/downloads/games", "/downloads/games-4k"],
           })
         }
       >
@@ -319,13 +334,15 @@ describe("AddTorrentModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Select category" }));
 
-    expect(screen.getByDisplayValue("/downloads/games")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/games");
+    fireEvent.click(screen.getByRole("button", { name: "/downloads/games-4k" }));
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/games-4k");
     expect(screen.getByTestId("tags")).toHaveTextContent("auto-tag");
   });
 
   it("pre-fills high-confidence release suggestions without making them mandatory", async () => {
     listCategoriesMock.mockResolvedValue({
-      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directory: "/downloads/movies" }],
+      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directories: ["/downloads/movies"] }],
     });
     parseReleaseMock.mockResolvedValue({
       data: {
@@ -342,12 +359,12 @@ describe("AddTorrentModal", () => {
     await waitFor(() => expect(parseReleaseMock).toHaveBeenCalled());
     expect(screen.getByDisplayValue("The Matrix (1999)")).toBeInTheDocument();
     expect(screen.getByTestId("tags")).toHaveTextContent("movie,quality::2160p,source::bluray,codec::x265");
-    expect(screen.getByDisplayValue("/downloads/movies")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/movies");
   });
 
   it("does not re-parse the release name when an unrelated field is edited", async () => {
     listCategoriesMock.mockResolvedValue({
-      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directory: "/downloads/movies" }],
+      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directories: [] }],
     });
     parseReleaseMock.mockResolvedValue({
       data: {
@@ -373,7 +390,7 @@ describe("AddTorrentModal", () => {
 
   it("clears auto-filled fields when a later parse drops to low confidence", async () => {
     listCategoriesMock.mockResolvedValue({
-      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directory: "/downloads/movies" }],
+      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directories: ["/downloads/movies"] }],
     });
     parseReleaseMock.mockResolvedValueOnce({
       data: {
@@ -388,7 +405,7 @@ describe("AddTorrentModal", () => {
       target: { value: "magnet:?xt=urn:btih:test&dn=The.Matrix.1999.2160p.BluRay.x265" },
     });
     await screen.findByDisplayValue("The Matrix (1999)");
-    expect(screen.getByDisplayValue("/downloads/movies")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/movies");
     expect(screen.getByTestId("tags")).toHaveTextContent("quality::2160p");
 
     parseReleaseMock.mockResolvedValueOnce({
@@ -430,19 +447,19 @@ describe("AddTorrentModal", () => {
 
     // Parse resolves (and applySuggestion runs) while categories are still loading.
     await screen.findByDisplayValue("The Matrix (1999)");
-    expect(screen.queryByDisplayValue("/downloads/movies")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).not.toBeInTheDocument();
 
     resolveCategories({
-      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directory: "/downloads/movies" }],
+      data: [{ id: "movie", name: "Movies", release_type: "movie", default_tags: ["movie"], default_directories: ["/downloads/movies"] }],
     });
 
-    await waitFor(() => expect(screen.getByDisplayValue("/downloads/movies")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/movies"));
     expect(screen.getByTestId("tags")).toHaveTextContent("movie,quality::2160p");
   });
 
   it("suggests a matching game category for a high-confidence game release", async () => {
     listCategoriesMock.mockResolvedValue({
-      data: [{ id: "game", name: "Games", release_type: "game", default_tags: ["game"], default_directory: "/downloads/games" }],
+      data: [{ id: "game", name: "Games", release_type: "game", default_tags: ["game"], default_directories: ["/downloads/games"] }],
     });
     parseReleaseMock.mockResolvedValue({
       data: {
@@ -458,15 +475,15 @@ describe("AddTorrentModal", () => {
     });
 
     await waitFor(() => expect(parseReleaseMock).toHaveBeenCalled());
-    expect(screen.getByDisplayValue("/downloads/games")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/games");
     expect(screen.getByTestId("tags")).toHaveTextContent("game,type::game,platform::pc");
   });
 
   it("prefers the category with the most overlapping tags when several share a release_type", async () => {
     listCategoriesMock.mockResolvedValue({
       data: [
-        { id: "generic", name: "Shows", release_type: "anime", default_tags: ["misc"], default_directory: "/downloads/shows" },
-        { id: "anime", name: "Anime", release_type: "anime", default_tags: ["type::anime"], default_directory: "/downloads/anime" },
+        { id: "generic", name: "Shows", release_type: "anime", default_tags: ["misc"], default_directories: ["/downloads/shows"] },
+        { id: "anime", name: "Anime", release_type: "anime", default_tags: ["type::anime"], default_directories: ["/downloads/anime"] },
       ],
     });
     parseReleaseMock.mockResolvedValue({
@@ -483,7 +500,7 @@ describe("AddTorrentModal", () => {
     });
 
     await waitFor(() => expect(parseReleaseMock).toHaveBeenCalled());
-    expect(screen.getByDisplayValue("/downloads/anime")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /torrents\.addModal\.directory\.label/ })).toHaveTextContent("/downloads/anime");
   });
 
   it("submits optimistically: pending placeholder, close, navigate, createTask", async () => {

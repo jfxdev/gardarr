@@ -749,7 +749,10 @@
         "label": "Directory",
         "optional": "optional",
         "autoFilled": "auto-filled",
-        "placeholder": "e.g. /downloads/movies"
+        "placeholder": "e.g. /downloads/movies",
+        "select": "Select a directory",
+        "searchPlaceholder": "Search directories...",
+        "noResults": "No directory found"
       },
       "tags": {
         "label": "Tags",
@@ -1024,7 +1027,7 @@
     "fields": {
       "name": "Name",
       "defaultTags": "Default Tags",
-      "defaultDirectory": "Default Directory",
+      "defaultDirectories": "Default Directories",
       "directories": "Directories",
       "metadataSource": "Metadata Source",
       "releaseType": "Release type for suggestions",
@@ -1037,6 +1040,8 @@
       "defaultDirectory": "Add a default directory path...",
       "tags": "Enter tags (ex: action, genre::action)"
     },
+    "directoriesHint": "Press Enter to add each directory.",
+    "removeDirectory": "Remove {{directory}}",
     "metadataSource": {
       "placeholder": "Select a metadata source",
       "help": "Choose which external source this category can use for metadata and images.",

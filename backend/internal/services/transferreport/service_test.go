@@ -190,7 +190,7 @@ func TestDelayedCaptureCountsAsCoverageForItsScheduledPeriod(t *testing.T) {
 				t.Fatalf("capture delayed slot: %v", err)
 			}
 
-			report, err := service.buildReport(context.Background(), tc.name, tc.start, tc.end, "UTC", 10)
+			report, err := service.buildReport(context.Background(), tc.name, tc.start, tc.end, "UTC", 10, false)
 			if err != nil {
 				t.Fatalf("build report: %v", err)
 			}
@@ -282,6 +282,47 @@ func TestGetCurrentBuildsRankingsFromPersistedSnapshots(t *testing.T) {
 	}
 }
 
+func TestGetCurrentClearsPartialWhenWorkerRecovers(t *testing.T) {
+	service, workers, _ := testService(t)
+	workerID := uuid.New()
+	workers.tasks = []*entities.Task{{WorkerID: workerID, Hash: "movie", Name: "Movie", Network: entities.TaskNetwork{Upload: entities.TaskUpload{Amount: 100}}}}
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+
+	if err := service.capture(context.Background(), now.Add(-6*time.Hour), now.Add(-6*time.Hour)); err != nil {
+		t.Fatalf("capture baseline: %v", err)
+	}
+	// A run where the worker was unavailable earlier in the day.
+	workers.tasks[0].Network.Upload.Amount = 130
+	workers.errors = map[string]string{workerID.String(): "offline"}
+	if err := service.capture(context.Background(), now.Add(-3*time.Hour), now.Add(-3*time.Hour)); err != nil {
+		t.Fatalf("capture outage: %v", err)
+	}
+	// The worker has since recovered: the latest run has no errors.
+	workers.errors = nil
+	workers.tasks[0].Network.Upload.Amount = 150
+	if err := service.capture(context.Background(), now, now); err != nil {
+		t.Fatalf("capture recovery: %v", err)
+	}
+	service.now = func() time.Time { return now }
+
+	daily, _, err := service.GetCurrent(context.Background())
+	if err != nil {
+		t.Fatalf("get current: %v", err)
+	}
+	if daily.Coverage != "complete" || len(daily.UnavailableWorkers) != 0 {
+		t.Fatalf("recovered worker should clear the partial flag: %#v", daily)
+	}
+
+	// Completed reports keep the whole-period union so history stays accurate.
+	completed, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, now.Add(-9*time.Hour), now.Add(time.Hour), "UTC", 10, false)
+	if err != nil {
+		t.Fatalf("build completed report: %v", err)
+	}
+	if completed.Coverage != "partial" || len(completed.UnavailableWorkers) != 1 {
+		t.Fatalf("completed report should record the earlier outage: %#v", completed)
+	}
+}
+
 func TestExpectedPeriodUsesMondayWeek(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Sao_Paulo")
 	settings := &entities.TransferReportSettings{DailyReportTime: "00:05", WeeklyReportDay: 1, WeeklyReportTime: "00:10"}
@@ -308,7 +349,7 @@ func TestServiceCapturesBuildsAndPersistsDailyReport(t *testing.T) {
 		t.Fatalf("movement capture: %v", err)
 	}
 
-	report, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, baseline.Add(time.Hour), baseline.Add(25*time.Hour), "UTC", 10)
+	report, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, baseline.Add(time.Hour), baseline.Add(25*time.Hour), "UTC", 10, false)
 	if err != nil {
 		t.Fatalf("build report: %v", err)
 	}
@@ -374,7 +415,7 @@ func TestBuildReportKeepsZeroTransferCoverageComplete(t *testing.T) {
 	if err := service.capture(context.Background(), start.Add(time.Hour), start.Add(time.Hour)); err != nil {
 		t.Fatalf("capture: %v", err)
 	}
-	report, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, start, start.Add(24*time.Hour), "UTC", 10)
+	report, err := service.buildReport(context.Background(), entities.TransferReportPeriodDaily, start, start.Add(24*time.Hour), "UTC", 10, false)
 	if err != nil {
 		t.Fatalf("build report: %v", err)
 	}

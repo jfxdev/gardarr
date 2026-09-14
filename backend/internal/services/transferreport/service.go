@@ -101,13 +101,13 @@ func (s *Service) GetCurrent(ctx context.Context) (daily, weekly *entities.Trans
 	now := s.now().UTC()
 	localNow := now.In(location)
 	dayStart := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, location)
-	daily, err = s.buildReport(ctx, entities.TransferReportPeriodDaily, dayStart.UTC(), now, timezone, settings.TopN)
+	daily, err = s.buildReport(ctx, entities.TransferReportPeriodDaily, dayStart.UTC(), now, timezone, settings.TopN, true)
 	if err != nil {
 		return nil, nil, err
 	}
 	daysSinceWeekStart := (int(localNow.Weekday()) - settings.WeeklyReportDay + 7) % 7
 	weekStart := dayStart.AddDate(0, 0, -daysSinceWeekStart)
-	weekly, err = s.buildReport(ctx, entities.TransferReportPeriodWeekly, weekStart.UTC(), now, timezone, settings.TopN)
+	weekly, err = s.buildReport(ctx, entities.TransferReportPeriodWeekly, weekStart.UTC(), now, timezone, settings.TopN, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -275,7 +275,7 @@ func (s *Service) generatePending(ctx context.Context, settings *entities.Transf
 				return err
 			}
 			if runCount > 0 {
-				refreshed, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN)
+				refreshed, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN, false)
 				if err != nil {
 					return err
 				}
@@ -291,7 +291,7 @@ func (s *Service) generatePending(ctx context.Context, settings *entities.Transf
 		}
 		return s.recordReportEvent(ctx, existing)
 	}
-	report, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN)
+	report, err := s.buildReport(ctx, periodType, start.UTC(), end.UTC(), timezone, settings.TopN, false)
 	if err != nil {
 		return err
 	}
@@ -335,7 +335,10 @@ func expectedPeriod(now time.Time, settings *entities.TransferReportSettings, lo
 	return end.AddDate(0, 0, -7), end, true
 }
 
-func (s *Service) buildReport(ctx context.Context, periodType string, start, end time.Time, timezone string, topN int) (*entities.TransferReport, error) {
+// buildReport aggregates snapshots for the period. When live is true (in-progress
+// reports), unavailable workers reflect only the most recent run so recovered
+// workers clear the partial flag; completed reports use the whole-period union.
+func (s *Service) buildReport(ctx context.Context, periodType string, start, end time.Time, timezone string, topN int, live bool) (*entities.TransferReport, error) {
 	snapshots, err := s.repo.ListSnapshotsUntil(ctx, end)
 	if err != nil {
 		return nil, err
@@ -345,11 +348,20 @@ func (s *Service) buildReport(ctx context.Context, periodType string, start, end
 	if err != nil {
 		return nil, err
 	}
-	errorsByRun, err := s.repo.ListRunErrors(ctx, start, end)
-	if err != nil {
-		return nil, err
+	var unavailable []string
+	if live {
+		latest, err := s.repo.LatestRunErrors(ctx, start, end)
+		if err != nil {
+			return nil, err
+		}
+		unavailable = uniqueWorkerIDs([]map[string]string{latest})
+	} else {
+		errorsByRun, err := s.repo.ListRunErrors(ctx, start, end)
+		if err != nil {
+			return nil, err
+		}
+		unavailable = uniqueWorkerIDs(errorsByRun)
 	}
-	unavailable := uniqueWorkerIDs(errorsByRun)
 	coverage := "complete"
 	if runCount == 0 {
 		coverage = "unavailable"

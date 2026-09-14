@@ -25,8 +25,33 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  // Stale-module errors — a lazy chunk whose hash changed after a redeploy or a
+  // dev dep re-optimization, leaving the tab with a dangling module graph — are
+  // only fixable by a full reload; "Try Again" just re-renders the same broken
+  // graph. Detect that class and reload once (guarded against a reload loop so a
+  // genuine, repeating render bug still surfaces the manual fallback).
+  private static isStaleModuleError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|reading 'useContext'/i.test(message);
+  }
+
+  private static tryReloadOnce(): boolean {
+    const key = 'app-stale-module-reload-at';
+    const last = Number(window.sessionStorage.getItem(key) || 0);
+    const now = Date.now();
+    if (now - last > 10000) {
+      window.sessionStorage.setItem(key, String(now));
+      window.location.reload();
+      return true;
+    }
+    return false;
+  }
+
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (ErrorBoundary.isStaleModuleError(error) && ErrorBoundary.tryReloadOnce()) {
+      return;
+    }
     this.setState({ errorInfo });
   }
 

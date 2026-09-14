@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Category, CategoryMetadataSource, CategoryReleaseType, CreateCategoryRequest, UpdateCategoryRequest } from "../types/category";
 import { toast } from "sonner";
@@ -30,13 +30,14 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
   const [createForm, setCreateForm] = useState<CreateCategoryRequest>({
     name: "",
     default_tags: [],
-    default_directory: "",
+    default_directories: [],
     metadata_source: "none",
     release_type: "none",
     color: "#3b82f6",
     icon: "Folder"
   });
   const [tagInput, setTagInput] = useState("");
+  const [directoryInput, setDirectoryInput] = useState("");
   
 
   // Initialize form when modal opens
@@ -47,7 +48,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         setCreateForm({
           name: editingCategory.name,
           default_tags: [...(editingCategory.default_tags || [])],
-          default_directory: editingCategory.default_directory || "",
+          default_directories: [...(editingCategory.default_directories || [])],
           metadata_source: editingCategory.metadata_source || "none",
           release_type: editingCategory.release_type || "none",
           color: editingCategory.color || "#3b82f6",
@@ -58,7 +59,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         setCreateForm({
           name: "",
           default_tags: [],
-          default_directory: "",
+          default_directories: [],
           metadata_source: "none",
           release_type: "none",
           color: "#3b82f6",
@@ -66,6 +67,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         });
       }
       setTagInput("");
+      setDirectoryInput("");
     }
   }, [open, editingCategory]);
 
@@ -80,7 +82,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         // Update existing category
         const updateData: UpdateCategoryRequest = {
           default_tags: createForm.default_tags,
-          default_directory: createForm.default_directory,
+          default_directories: createForm.default_directories,
           metadata_source: createForm.metadata_source,
           release_type: createForm.release_type,
           color: createForm.color,
@@ -96,13 +98,14 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
       setCreateForm({
         name: "",
         default_tags: [],
-        default_directory: "",
+        default_directories: [],
         metadata_source: "none",
         release_type: "none",
         color: "#3b82f6",
         icon: "Folder"
       });
       setTagInput("");
+      setDirectoryInput("");
       onOpenChange(false);
     } catch (err) {
       const errorMessage = err instanceof Error 
@@ -136,10 +139,22 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
     });
   };
 
-  const handleDirectoryChange = (value: string) => {
+  const addDirectory = () => {
+    const directory = directoryInput.trim();
+    if (!directory || createForm.default_directories.includes(directory)) {
+      return;
+    }
     setCreateForm({
       ...createForm,
-      default_directory: value
+      default_directories: [...createForm.default_directories, directory]
+    });
+    setDirectoryInput("");
+  };
+
+  const removeDirectory = (index: number) => {
+    setCreateForm({
+      ...createForm,
+      default_directories: createForm.default_directories.filter((_, i) => i !== index)
     });
   };
 
@@ -159,13 +174,14 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
     setCreateForm({
       name: "",
       default_tags: [],
-      default_directory: "",
+      default_directories: [],
       metadata_source: "none",
       release_type: "none",
       color: "#3b82f6",
       icon: "Folder"
     });
     setTagInput("");
+    setDirectoryInput("");
     onOpenChange(false);
   };
 
@@ -248,58 +264,77 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="release-type" className="text-sm">{t("categories.fields.releaseType")}</Label>
-            <Select value={createForm.release_type || "none"} onValueChange={(value) => handleReleaseTypeChange(value as CategoryReleaseType)}>
-              <SelectTrigger id="release-type" className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("categories.releaseType.options.none")}</SelectItem>
-                <SelectItem value="movie">{t("categories.releaseType.options.movie")}</SelectItem>
-                <SelectItem value="series">{t("categories.releaseType.options.series")}</SelectItem>
-                <SelectItem value="os">{t("categories.releaseType.options.os")}</SelectItem>
-                <SelectItem value="game">{t("categories.releaseType.options.game")}</SelectItem>
-                <SelectItem value="book">{t("categories.releaseType.options.book")}</SelectItem>
-                <SelectItem value="music">{t("categories.releaseType.options.music")}</SelectItem>
-                <SelectItem value="software">{t("categories.releaseType.options.software")}</SelectItem>
-                <SelectItem value="audiobook">{t("categories.releaseType.options.audiobook")}</SelectItem>
-                <SelectItem value="comic">{t("categories.releaseType.options.comic")}</SelectItem>
-                <SelectItem value="course">{t("categories.releaseType.options.course")}</SelectItem>
-                <SelectItem value="dataset">{t("categories.releaseType.options.dataset")}</SelectItem>
-                <SelectItem value="rom">{t("categories.releaseType.options.rom")}</SelectItem>
-                <SelectItem value="podcast">{t("categories.releaseType.options.podcast")}</SelectItem>
-                <SelectItem value="anime">{t("categories.releaseType.options.anime")}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{t("categories.releaseType.help")}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="release-type" className="text-sm">{t("categories.fields.releaseType")}</Label>
+              <Select value={createForm.release_type || "none"} onValueChange={(value) => handleReleaseTypeChange(value as CategoryReleaseType)}>
+                <SelectTrigger id="release-type" className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("categories.releaseType.options.none")}</SelectItem>
+                  <SelectItem value="movie">{t("categories.releaseType.options.movie")}</SelectItem>
+                  <SelectItem value="series">{t("categories.releaseType.options.series")}</SelectItem>
+                  <SelectItem value="os">{t("categories.releaseType.options.os")}</SelectItem>
+                  <SelectItem value="game">{t("categories.releaseType.options.game")}</SelectItem>
+                  <SelectItem value="book">{t("categories.releaseType.options.book")}</SelectItem>
+                  <SelectItem value="music">{t("categories.releaseType.options.music")}</SelectItem>
+                  <SelectItem value="software">{t("categories.releaseType.options.software")}</SelectItem>
+                  <SelectItem value="audiobook">{t("categories.releaseType.options.audiobook")}</SelectItem>
+                  <SelectItem value="comic">{t("categories.releaseType.options.comic")}</SelectItem>
+                  <SelectItem value="course">{t("categories.releaseType.options.course")}</SelectItem>
+                  <SelectItem value="dataset">{t("categories.releaseType.options.dataset")}</SelectItem>
+                  <SelectItem value="rom">{t("categories.releaseType.options.rom")}</SelectItem>
+                  <SelectItem value="podcast">{t("categories.releaseType.options.podcast")}</SelectItem>
+                  <SelectItem value="anime">{t("categories.releaseType.options.anime")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t("categories.releaseType.help")}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="metadata-source" className="text-sm">{t('categories.fields.metadataSource')}</Label>
+              <Select
+                value={createForm.metadata_source || "none"}
+                onValueChange={(value) => handleMetadataSourceChange(value as CategoryMetadataSource)}
+              >
+                <SelectTrigger id="metadata-source" className="h-9">
+                  <SelectValue placeholder={t('categories.metadataSource.placeholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('categories.metadataSource.options.none')}</SelectItem>
+                  <SelectItem value="tgdb">{t('categories.metadataSource.options.tgdb')}</SelectItem>
+                  <SelectItem value="tmdb">{t('categories.metadataSource.options.tmdb')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t('categories.metadataSource.help')}</p>
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="directory" className="text-sm">{t('categories.fields.defaultDirectory')}</Label>
-            <Input
-              id="directory"
-              placeholder={t('categories.placeholders.defaultDirectory')}
-              value={createForm.default_directory}
-              onChange={(e) => handleDirectoryChange(e.target.value)}
-              className="h-9"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="metadata-source" className="text-sm">{t('categories.fields.metadataSource')}</Label>
-            <Select
-              value={createForm.metadata_source || "none"}
-              onValueChange={(value) => handleMetadataSourceChange(value as CategoryMetadataSource)}
-            >
-              <SelectTrigger id="metadata-source" className="h-9">
-                <SelectValue placeholder={t('categories.metadataSource.placeholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t('categories.metadataSource.options.none')}</SelectItem>
-                <SelectItem value="tgdb">{t('categories.metadataSource.options.tgdb')}</SelectItem>
-                <SelectItem value="tmdb">{t('categories.metadataSource.options.tmdb')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{t('categories.metadataSource.help')}</p>
+            <Label htmlFor="directory" className="text-sm">{t('categories.fields.defaultDirectories')}</Label>
+            <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5">
+              {createForm.default_directories.map((directory, index) => (
+                <span key={directory} className="inline-flex max-w-full items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  <span className="truncate">{directory}</span>
+                  <button type="button" onClick={() => { removeDirectory(index); }} aria-label={t('categories.removeDirectory', { directory })}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <Input
+                id="directory"
+                placeholder={t('categories.placeholders.defaultDirectory')}
+                value={directoryInput}
+                onChange={(event) => { setDirectoryInput(event.target.value); }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addDirectory();
+                  }
+                }}
+                className="h-7 min-w-[180px] flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t('categories.directoriesHint')}</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

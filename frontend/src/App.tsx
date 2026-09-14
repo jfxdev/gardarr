@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, type ComponentType } from 'react'
 import { Loader2 } from 'lucide-react'
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router'
 import { AuthProvider } from './contexts/AuthContext'
@@ -12,28 +12,58 @@ import { Toaster } from './components/ui/sonner'
 import { UpdatePrompt } from './components/pwa/UpdatePrompt'
 import { InstallPrompt } from './components/pwa/InstallPrompt'
 
+// Lazy chunk URLs are content-hashed, so they change whenever Vite re-optimizes
+// deps in dev or a new build is deployed. A tab that loaded the old index then
+// navigates to a route whose chunk hash has since changed gets "Failed to fetch
+// dynamically imported module". Retry the import once (covers a transient
+// network/optimize blip); if it still fails the chunk is genuinely gone, so
+// force a single full reload to pull the current index. sessionStorage guards
+// against a reload loop when the failure is not stale-chunk related.
+function lazyWithRetry<T extends { default: ComponentType<unknown> }>(factory: () => Promise<T>) {
+  return lazy(async () => {
+    const reloadKey = 'chunk-reload'
+    try {
+      const module = await factory()
+      window.sessionStorage.removeItem(reloadKey)
+      return module
+    } catch {
+      try {
+        return await factory()
+      } catch (retryError) {
+        if (!window.sessionStorage.getItem(reloadKey)) {
+          window.sessionStorage.setItem(reloadKey, '1')
+          window.location.reload()
+          // Return a never-resolving module so Suspense holds until reload.
+          return new Promise<T>(() => {})
+        }
+        throw retryError
+      }
+    }
+  })
+}
+
 // Authenticated-area pages are lazy-loaded so the initial bundle only pays
 // for the pre-auth screens above; each route's code (and its dependencies,
 // e.g. Recharts for Dashboard) loads on first visit instead of up front.
-const TorrentsPage = lazy(() => import('./Torrents'))
-const WorkersPage = lazy(() => import('./Workers'))
-const CategoriesPage = lazy(() => import('./Categories'))
-const TagsPage = lazy(() => import('./Tags'))
-const RssPage = lazy(() => import('./Rss'))
-const DashboardPage = lazy(() => import('./Dashboard'))
-const HistoryPage = lazy(() => import('./History'))
-const ReportsPage = lazy(() => import('./Reports'))
-const IntegrationsPage = lazy(() => import('./Integrations'))
-const IntegrationWebhookPage = lazy(() => import('./IntegrationWebhook'))
-const IntegrationDiscordPage = lazy(() => import('./IntegrationDiscord'))
-const SettingsPage = lazy(() => import('./Settings'))
-const AboutPage = lazy(() => import('./About'))
-const ProfilePage = lazy(() => import('./Profile'))
-const UsersPage = lazy(() => import('./Users'))
-const SignupPage = lazy(() => import('./Signup'))
-const InviteAcceptPage = lazy(() => import('./InviteAccept'))
-const ResetPasswordPage = lazy(() => import('./ResetPassword'))
-const ForgotPasswordPage = lazy(() => import('./ForgotPassword'))
+const TorrentsPage = lazyWithRetry(() => import('./Torrents'))
+const WorkersPage = lazyWithRetry(() => import('./Workers'))
+const CategoriesPage = lazyWithRetry(() => import('./Categories'))
+const TagsPage = lazyWithRetry(() => import('./Tags'))
+const RssPage = lazyWithRetry(() => import('./Rss'))
+const DashboardPage = lazyWithRetry(() => import('./Dashboard'))
+const HistoryPage = lazyWithRetry(() => import('./History'))
+const ReportsPage = lazyWithRetry(() => import('./Reports'))
+const IntegrationsPage = lazyWithRetry(() => import('./Integrations'))
+const IntegrationWebhookPage = lazyWithRetry(() => import('./IntegrationWebhook'))
+const IntegrationDiscordPage = lazyWithRetry(() => import('./IntegrationDiscord'))
+const SettingsPage = lazyWithRetry(() => import('./Settings'))
+const AboutPage = lazyWithRetry(() => import('./About'))
+const ProfilePage = lazyWithRetry(() => import('./Profile'))
+const UsersPage = lazyWithRetry(() => import('./Users'))
+const SignupPage = lazyWithRetry(() => import('./Signup'))
+const InviteAcceptPage = lazyWithRetry(() => import('./InviteAccept'))
+const ResetPasswordPage = lazyWithRetry(() => import('./ResetPassword'))
+const ForgotPasswordPage = lazyWithRetry(() => import('./ForgotPassword'))
 
 function RouteFallback() {
   return (

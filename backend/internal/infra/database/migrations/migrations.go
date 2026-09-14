@@ -848,7 +848,89 @@ func Register(m *migration.Migrator) {
 				return nil
 			},
 		},
+		{
+			Version:     "045_replace_category_default_directory_with_directories",
+			Description: "Substitui o diretório padrão único por uma lista de diretórios nas categorias",
+			Up: func(db *gorm.DB) error {
+				if !db.Migrator().HasColumn(&models.Category{}, "DefaultDirectories") {
+					if err := db.Migrator().AddColumn(&models.Category{}, "DefaultDirectories"); err != nil {
+						return err
+					}
+				}
+
+				return backfillLegacyCategoryDirectories(db)
+			},
+			Down: func(db *gorm.DB) error {
+				if db.Migrator().HasColumn(&models.Category{}, "DefaultDirectories") {
+					return db.Migrator().DropColumn(&models.Category{}, "DefaultDirectories")
+				}
+				return nil
+			},
+		},
+		{
+			Version:     "046_seed_default_category_directories",
+			Description: "Define diretórios padrão para as categorias nativas sem configuração",
+			Up: func(db *gorm.DB) error {
+				if err := backfillLegacyCategoryDirectories(db); err != nil {
+					return err
+				}
+				for name, directory := range map[string]string{
+					"movies": "/downloads/movies",
+					"shows":  "/downloads/shows",
+					"games":  "/downloads/games",
+					"other":  "/downloads/other",
+					"books":  "/downloads/books",
+					"anime":  "/downloads/anime",
+					"music":  "/downloads/music",
+				} {
+					result := db.Table("categories").
+						Where("lower(name) = ?", name).
+						Where("default_directories IS NULL OR default_directories = '' OR default_directories = '[]'").
+						Update("default_directories", models.StringArray{directory})
+					if result.Error != nil {
+						return result.Error
+					}
+				}
+				return nil
+			},
+			Down: func(_ *gorm.DB) error { return nil },
+		},
+		{
+			Version:     "047_backfill_legacy_category_directories",
+			Description: "Conclui a conversão de diretórios de categorias legadas",
+			Up:          backfillLegacyCategoryDirectories,
+			Down:        func(_ *gorm.DB) error { return nil },
+		},
 	})
+}
+
+// backfillLegacyCategoryDirectories converts the old scalar column without
+// asking GORM to infer a database type for StringArray in a temporary struct.
+func backfillLegacyCategoryDirectories(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&models.Category{}, "default_directory") {
+		return nil
+	}
+
+	var categories []struct {
+		ID               string
+		DefaultDirectory string
+	}
+	if err := db.Table("categories").Find(&categories).Error; err != nil {
+		return err
+	}
+
+	for _, category := range categories {
+		if category.DefaultDirectory == "" {
+			continue
+		}
+		if err := db.Table("categories").Where("id = ?", category.ID).
+			Where("default_directories IS NULL OR default_directories = '' OR default_directories = '[]'").
+			Update("default_directories", models.StringArray{category.DefaultDirectory}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // backfillRemovedEventNames copia name/category/size do evento mais recente de

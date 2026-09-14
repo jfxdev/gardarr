@@ -15,17 +15,18 @@ import (
 )
 
 var expectedSeededCategories = map[string]struct {
-	Icon        string
-	Color       string
-	DefaultTags []string
+	Icon               string
+	Color              string
+	DefaultTags        []string
+	DefaultDirectories []string
 }{
-	"Movies": {Icon: "Film", Color: "#ef4444", DefaultTags: []string{"movie", "1080p"}},
-	"Shows":  {Icon: "Tv", Color: "#3b82f6", DefaultTags: []string{"tv", "episode"}},
-	"Games":  {Icon: "Gamepad2", Color: "#10b981", DefaultTags: []string{"game", "pc"}},
-	"Other":  {Icon: "Folder", Color: "#6b7280", DefaultTags: []string{"misc"}},
-	"Books":  {Icon: "BookOpen", Color: "#f59e0b", DefaultTags: []string{"book", "ebook"}},
-	"Anime":  {Icon: "Star", Color: "#ec4899", DefaultTags: []string{"anime", "sub"}},
-	"Music":  {Icon: "Music", Color: "#14b8a6", DefaultTags: []string{"music", "flac"}},
+	"Movies": {Icon: "Film", Color: "#ef4444", DefaultTags: []string{"movie", "1080p"}, DefaultDirectories: []string{"/downloads/movies"}},
+	"Shows":  {Icon: "Tv", Color: "#3b82f6", DefaultTags: []string{"tv", "episode"}, DefaultDirectories: []string{"/downloads/shows"}},
+	"Games":  {Icon: "Gamepad2", Color: "#10b981", DefaultTags: []string{"game", "pc"}, DefaultDirectories: []string{"/downloads/games"}},
+	"Other":  {Icon: "Folder", Color: "#6b7280", DefaultTags: []string{"misc"}, DefaultDirectories: []string{"/downloads/other"}},
+	"Books":  {Icon: "BookOpen", Color: "#f59e0b", DefaultTags: []string{"book", "ebook"}, DefaultDirectories: []string{"/downloads/books"}},
+	"Anime":  {Icon: "Star", Color: "#ec4899", DefaultTags: []string{"anime", "sub"}, DefaultDirectories: []string{"/downloads/anime"}},
+	"Music":  {Icon: "Music", Color: "#14b8a6", DefaultTags: []string{"music", "flac"}, DefaultDirectories: []string{"/downloads/music"}},
 }
 
 func TestMigration007AddColorIconToCategories(t *testing.T) {
@@ -61,13 +62,13 @@ func TestMigration007AddColorIconToCategories(t *testing.T) {
 
 	// Test creating a category with color and icon
 	category := models.Category{
-		ID:               "test-category-id",
-		Name:             "Test Category",
-		Color:            "#FF5733",
-		Icon:             "Folder",
-		DefaultTags:      models.StringArray{"tag1", "tag2"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
+		ID:                 "test-category-id",
+		Name:               "Test Category",
+		Color:              "#FF5733",
+		Icon:               "Folder",
+		DefaultTags:        models.StringArray{"tag1", "tag2"},
+		DefaultDirectories: models.StringArray{"/path1"},
+		MetadataSource:     "none",
 	}
 
 	if err := db.Create(&category).Error; err != nil {
@@ -252,13 +253,13 @@ func TestMigration026SeedsOnlyMissingCategories(t *testing.T) {
 	}
 
 	existingMovies := models.Category{
-		ID:               "custom-movies-id",
-		Name:             "Movies",
-		Color:            "#000000",
-		Icon:             "Archive",
-		DefaultDirectory: "/custom/movies",
-		MetadataSource:   "none",
-		DefaultTags:      models.StringArray{"existing"},
+		ID:                 "custom-movies-id",
+		Name:               "Movies",
+		Color:              "#000000",
+		Icon:               "Archive",
+		DefaultDirectories: models.StringArray{"/custom/movies"},
+		MetadataSource:     "none",
+		DefaultTags:        models.StringArray{"existing"},
 	}
 
 	if err := db.Where("name = ?", "Movies").Delete(&models.Category{}).Error; err != nil {
@@ -296,6 +297,9 @@ func TestMigration026SeedsOnlyMissingCategories(t *testing.T) {
 
 	if movies[0].Icon != existingMovies.Icon {
 		t.Errorf("Expected existing Movies icon %s to be preserved, got %s", existingMovies.Icon, movies[0].Icon)
+	}
+	if !slices.Equal([]string(movies[0].DefaultDirectories), []string(existingMovies.DefaultDirectories)) {
+		t.Errorf("Expected existing Movies directories %v to be preserved, got %v", existingMovies.DefaultDirectories, movies[0].DefaultDirectories)
 	}
 
 	var categories []models.Category
@@ -360,8 +364,8 @@ func assertSeededCategories(t *testing.T, db *gorm.DB) {
 			t.Errorf("Expected seeded category %s to have a generated ID", category.Name)
 		}
 
-		if category.DefaultDirectory != "" {
-			t.Errorf("Expected empty default directory for %s, got %s", category.Name, category.DefaultDirectory)
+		if !slices.Equal([]string(category.DefaultDirectories), expected.DefaultDirectories) {
+			t.Errorf("Expected default directories %v for %s, got %v", expected.DefaultDirectories, category.Name, category.DefaultDirectories)
 		}
 
 		if !slices.Equal([]string(category.DefaultTags), expected.DefaultTags) {
@@ -380,7 +384,7 @@ func assertSeededCategories(t *testing.T, db *gorm.DB) {
 	}
 }
 
-func TestMigration027RenamesCategoryDirectoryAndAddsMetadataSource(t *testing.T) {
+func TestMigration045AddsCategoryDefaultDirectories(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
@@ -393,12 +397,39 @@ func TestMigration027RenamesCategoryDirectoryAndAddsMetadataSource(t *testing.T)
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	if !db.Migrator().HasColumn(&models.Category{}, "default_directory") {
-		t.Error("Expected default_directory column to exist in categories table")
+	if !db.Migrator().HasColumn(&models.Category{}, "default_directories") {
+		t.Error("Expected default_directories column to exist in categories table")
 	}
 
 	if !db.Migrator().HasColumn(&models.Category{}, "metadata_source") {
 		t.Error("Expected metadata_source column to exist in categories table")
+	}
+}
+
+func TestMigration045PreservesLegacyDefaultDirectory(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT, default_directory TEXT)`).Error; err != nil {
+		t.Fatalf("Failed to create legacy categories table: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO categories (id, name, default_directory) VALUES (?, ?, ?)`, "legacy-category", "Legacy", "/downloads/legacy").Error; err != nil {
+		t.Fatalf("Failed to insert legacy category: %v", err)
+	}
+
+	m := migration.NewMigrator(db)
+	Register(m)
+	if err := m.Up(); err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	var category models.Category
+	if err := db.Where("id = ?", "legacy-category").First(&category).Error; err != nil {
+		t.Fatalf("Failed to load migrated category: %v", err)
+	}
+	if !slices.Equal([]string(category.DefaultDirectories), []string{"/downloads/legacy"}) {
+		t.Errorf("Expected legacy directory to be preserved, got %v", category.DefaultDirectories)
 	}
 }
 
