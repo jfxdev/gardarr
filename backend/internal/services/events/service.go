@@ -197,6 +197,10 @@ type stateUpdate struct {
 	state     string
 	progress  float64
 	timestamp time.Time
+	// target is set only for metadata-only changes, whose in-memory snapshot
+	// must not be committed until SaveTaskStates confirms the write -
+	// otherwise a failed persist would never be retried on later polls.
+	target *entities.TaskState
 }
 
 // completionCheck represents a pending completion event that needs database verification
@@ -367,12 +371,10 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 			} else if lastState.Name != t.Name || lastState.Category != t.Category || lastState.Size != int64(t.Size) {
 				// Keep the durable snapshot complete even when qBittorrent changes
 				// metadata without changing state or progress. This information is
-				// later used by removal events after a restart.
-				lastState.Name = t.Name
-				lastState.Category = t.Category
-				lastState.Size = int64(t.Size)
-				lastState.UpdatedAt = timestamp
-
+				// later used by removal events after a restart. The in-memory
+				// fields are only committed once SaveTaskStates confirms the
+				// write (see below), so a failed persist stays dirty and is
+				// retried on the next poll instead of being silently dropped.
 				updatesChan <- stateUpdate{
 					hash:      t.Hash,
 					name:      t.Name,
@@ -381,6 +383,7 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 					state:     t.State,
 					progress:  t.Progress,
 					timestamp: timestamp,
+					target:    lastState,
 				}
 			}
 		}(task)
@@ -394,6 +397,7 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 	// instead of one round trip per task (the dominant DB cost per poll cycle
 	// when many torrents change progress at once).
 	updates := make([]*entities.TaskState, 0, len(updatesChan))
+	pending := make([]stateUpdate, 0, len(updatesChan))
 	for u := range updatesChan {
 		updates = append(updates, &entities.TaskState{
 			WorkerID:  workerID,
@@ -405,6 +409,7 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 			Progress:  u.progress,
 			UpdatedAt: u.timestamp,
 		})
+		pending = append(pending, u)
 	}
 
 	if err := s.repo.SaveTaskStates(ctx, updates); err != nil {
@@ -413,6 +418,18 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 			"worker_id", workerID.String(),
 			"count", len(updates),
 		)
+	} else {
+		s.mu.Lock()
+		for _, u := range pending {
+			if u.target == nil {
+				continue
+			}
+			u.target.Name = u.name
+			u.target.Category = u.category
+			u.target.Size = u.size
+			u.target.UpdatedAt = u.timestamp
+		}
+		s.mu.Unlock()
 	}
 
 	// Process events

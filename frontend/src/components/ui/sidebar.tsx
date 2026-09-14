@@ -353,7 +353,9 @@ function SidebarRail({
 
     const startX = event.clientX
     const startWidth = sidebarWidth
-    const sidebar = event.currentTarget.closest<HTMLElement>("[data-state][data-side]")
+    const button = event.currentTarget
+    const pointerId = event.pointerId
+    const sidebar = button.closest<HTMLElement>("[data-state][data-side]")
     const side = sidebar?.dataset.side ?? "left"
     const previousCursor = document.body.style.cursor
     const previousUserSelect = document.body.style.userSelect
@@ -361,6 +363,7 @@ function SidebarRail({
     sidebar?.setAttribute("data-resizing", "true")
     document.body.style.cursor = "col-resize"
     document.body.style.userSelect = "none"
+    button.setPointerCapture?.(pointerId)
 
     const handlePointerMove = (pointerEvent: PointerEvent) => {
       const distance = pointerEvent.clientX - startX
@@ -374,6 +377,8 @@ function SidebarRail({
       window.removeEventListener("pointermove", handlePointerMove)
       window.removeEventListener("pointerup", cleanup)
       window.removeEventListener("pointercancel", cleanup)
+      button.removeEventListener("lostpointercapture", cleanup)
+      window.removeEventListener("blur", cleanup)
       sidebar?.removeAttribute("data-resizing")
       document.body.style.cursor = previousCursor
       document.body.style.userSelect = previousUserSelect
@@ -385,6 +390,8 @@ function SidebarRail({
     window.addEventListener("pointermove", handlePointerMove)
     window.addEventListener("pointerup", cleanup)
     window.addEventListener("pointercancel", cleanup)
+    button.addEventListener("lostpointercapture", cleanup)
+    window.addEventListener("blur", cleanup)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {

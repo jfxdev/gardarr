@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,7 @@ export function TorrentDetailsModal({
   const [activeTab, setActiveTab] = useState("overview");
   const [currentCategoryData, setCurrentCategoryData] = useState<Category | null>(null);
   const { t } = useTranslation();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   if (!torrent) return null;
 
@@ -73,8 +74,12 @@ export function TorrentDetailsModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
+        ref={contentRef}
         data-torrent-details-dialog
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          contentRef.current?.focus();
+        }}
         className="!top-0 h-[100dvh] !max-h-[100dvh] w-full !max-w-none !m-0 !translate-y-0 rounded-none border-0 px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] flex flex-col overflow-hidden sm:!top-[calc(50%+(env(safe-area-inset-top)-env(safe-area-inset-bottom))/2)] sm:h-[90vh] sm:!max-h-[90vh] sm:!w-[80rem] sm:!max-w-[calc(100vw-2rem)] sm:!m-0 sm:!translate-y-[-50%] sm:rounded-lg sm:border sm:p-6"
       >
         <DialogHeader className="sr-only">
