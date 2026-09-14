@@ -149,6 +149,30 @@ func (r *Repository) ListRunErrors(ctx context.Context, start, end time.Time) ([
 	return out, nil
 }
 
+// LatestRunErrors returns the worker error map from the most recent run in the
+// period. It reflects current availability rather than the whole-period union.
+func (r *Repository) LatestRunErrors(ctx context.Context, start, end time.Time) (map[string]string, error) {
+	var row models.TransferSnapshotRun
+	err := r.db.DB.WithContext(ctx).
+		Where("scheduled_at > ? AND scheduled_at <= ?", start.UTC(), end.UTC()).
+		Order("scheduled_at DESC").
+		First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if row.WorkerErrors == "" || row.WorkerErrors == "{}" {
+		return nil, nil
+	}
+	var values map[string]string
+	if err := json.Unmarshal([]byte(row.WorkerErrors), &values); err != nil {
+		return nil, nil
+	}
+	return values, nil
+}
+
 func (r *Repository) GetLatest(ctx context.Context, periodType string) (*entities.TransferReport, error) {
 	var row models.TransferReport
 	err := r.db.DB.WithContext(ctx).Where("period_type = ?", periodType).First(&row).Error
