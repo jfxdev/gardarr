@@ -34,6 +34,7 @@
     "@tailwindcss/vite": "^4.1.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "country-flag-icons": "^1.6.20",
     "date-fns": "^4.1.0",
     "i18next": "^25.6.0",

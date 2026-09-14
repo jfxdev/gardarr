@@ -15,12 +15,12 @@ func TestServiceCreateCategory(t *testing.T) {
 	ctx := context.Background()
 
 	category := entities.Category{
-		Name:             "Test Category",
-		DefaultTags:      []string{"tag1", "tag2"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
-		Color:            "#FF5733",
-		Icon:             "folder-icon",
+		Name:               "Test Category",
+		DefaultTags:        []string{"tag1", "tag2"},
+		DefaultDirectories: []string{"/path1", "/path2"},
+		MetadataSource:     "none",
+		Color:              "#FF5733",
+		Icon:               "folder-icon",
 	}
 
 	created, err := service.CreateCategory(ctx, category)
@@ -67,8 +67,8 @@ func TestServiceListCategories(t *testing.T) {
 
 	// Create test categories
 	testCategories := []entities.Category{
-		{Name: "Category 1", DefaultTags: []string{"tag1"}, DefaultDirectory: "/path1", MetadataSource: "none"},
-		{Name: "Category 2", DefaultTags: []string{"tag2"}, DefaultDirectory: "/path2", MetadataSource: "none"},
+		{Name: "Category 1", DefaultTags: []string{"tag1"}, DefaultDirectories: []string{"/path1"}, MetadataSource: "none"},
+		{Name: "Category 2", DefaultTags: []string{"tag2"}, DefaultDirectories: []string{"/path2"}, MetadataSource: "none"},
 	}
 
 	for _, cat := range testCategories {
@@ -96,10 +96,10 @@ func TestServiceGetCategoryByID(t *testing.T) {
 
 	// Create a category
 	category := entities.Category{
-		Name:             "Test Category",
-		DefaultTags:      []string{"tag1"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
+		Name:               "Test Category",
+		DefaultTags:        []string{"tag1"},
+		DefaultDirectories: []string{"/path1"},
+		MetadataSource:     "none",
 	}
 
 	created, err := service.CreateCategory(ctx, category)
@@ -131,10 +131,10 @@ func TestServiceGetCategoryByName(t *testing.T) {
 
 	// Create a category
 	category := entities.Category{
-		Name:             "Unique Name",
-		DefaultTags:      []string{"tag1"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
+		Name:               "Unique Name",
+		DefaultTags:        []string{"tag1"},
+		DefaultDirectories: []string{"/path1"},
+		MetadataSource:     "none",
 	}
 
 	created, err := service.CreateCategory(ctx, category)
@@ -166,11 +166,11 @@ func TestServiceUpdateCategory(t *testing.T) {
 
 	// Create a category
 	category := entities.Category{
-		Name:             "Immutable Name",
-		DefaultTags:      []string{"tag1"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
-		Color:            "#FF0000",
+		Name:               "Immutable Name",
+		DefaultTags:        []string{"tag1"},
+		DefaultDirectories: []string{"/path1"},
+		MetadataSource:     "none",
+		Color:              "#FF0000",
 	}
 
 	created, err := service.CreateCategory(ctx, category)
@@ -180,7 +180,7 @@ func TestServiceUpdateCategory(t *testing.T) {
 
 	// Update only mutable fields (name and ID are immutable)
 	created.DefaultTags = []string{"tag1", "tag2"}
-	created.DefaultDirectory = "/path1"
+	created.DefaultDirectories = []string{"/path1", "/path2"}
 	created.Color = "#00FF00"
 	created.Icon = "new-icon"
 
@@ -214,10 +214,10 @@ func TestServiceDeleteCategory(t *testing.T) {
 
 	// Create a category
 	category := entities.Category{
-		Name:             "To Be Deleted",
-		DefaultTags:      []string{"tag1"},
-		DefaultDirectory: "/path1",
-		MetadataSource:   "none",
+		Name:               "To Be Deleted",
+		DefaultTags:        []string{"tag1"},
+		DefaultDirectories: []string{"/path1"},
+		MetadataSource:     "none",
 	}
 
 	created, err := service.CreateCategory(ctx, category)
@@ -245,12 +245,12 @@ func TestServiceIntegrationFullCRUD(t *testing.T) {
 
 	// Create
 	category := entities.Category{
-		Name:             "Integration Test",
-		DefaultTags:      []string{"test"},
-		DefaultDirectory: "/test",
-		MetadataSource:   "none",
-		Color:            "#123456",
-		Icon:             "test-icon",
+		Name:               "Integration Test",
+		DefaultTags:        []string{"test"},
+		DefaultDirectories: []string{"/test"},
+		MetadataSource:     "none",
+		Color:              "#123456",
+		Icon:               "test-icon",
 	}
 
 	created, err := service.CreateCategory(ctx, category)

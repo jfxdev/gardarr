@@ -53,12 +53,12 @@ func TestRoutes_CreateCategory_Success(t *testing.T) {
 	router, _ := setupTestRouter(t)
 
 	body := map[string]interface{}{
-		"name":              "Test Category",
-		"default_tags":      []string{"tag1", "tag2"},
-		"default_directory": "/path1",
-		"metadata_source":   "tgdb",
-		"color":             "#FF5733",
-		"icon":              "folder-icon",
+		"name":                "Test Category",
+		"default_tags":        []string{"tag1", "tag2"},
+		"default_directories": []string{"/path1", "/path2"},
+		"metadata_source":     "tgdb",
+		"color":               "#FF5733",
+		"icon":                "folder-icon",
 	}
 
 	w := sendJSONRequest(router, "POST", "/api/v1/categories", body)
@@ -90,6 +90,10 @@ func TestRoutes_CreateCategory_Success(t *testing.T) {
 
 	if response.MetadataSource != "tgdb" {
 		t.Errorf("Expected metadata source 'tgdb', got '%s'", response.MetadataSource)
+	}
+
+	if len(response.DefaultDirectories) != 2 {
+		t.Errorf("Expected 2 default directories, got %v", response.DefaultDirectories)
 	}
 }
 
@@ -200,11 +204,11 @@ func TestRoutes_UpdateCategory_Success(t *testing.T) {
 
 	// Update the category (only mutable fields)
 	updateBody := map[string]interface{}{
-		"default_tags":      []string{"tag1", "tag2"},
-		"default_directory": "/updated/path",
-		"metadata_source":   "tgdb",
-		"color":             "#00FF00",
-		"icon":              "new-icon",
+		"default_tags":        []string{"tag1", "tag2"},
+		"default_directories": []string{"/updated/path", "/alternate/path"},
+		"metadata_source":     "tgdb",
+		"color":               "#00FF00",
+		"icon":                "new-icon",
 	}
 
 	w = sendJSONRequest(router, "PUT", "/api/v1/categories/"+created.ID, updateBody)
@@ -232,8 +236,8 @@ func TestRoutes_UpdateCategory_Success(t *testing.T) {
 		t.Errorf("Expected icon 'new-icon', got '%s'", response.Icon)
 	}
 
-	if response.DefaultDirectory != "/updated/path" {
-		t.Errorf("Expected default directory '/updated/path', got '%s'", response.DefaultDirectory)
+	if len(response.DefaultDirectories) != 2 || response.DefaultDirectories[0] != "/updated/path" {
+		t.Errorf("Expected updated default directories, got %v", response.DefaultDirectories)
 	}
 
 	if response.MetadataSource != "tgdb" {

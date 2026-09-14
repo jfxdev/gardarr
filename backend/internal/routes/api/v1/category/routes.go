@@ -52,13 +52,13 @@ func (m *Module) createCategory(c *gin.Context) {
 	}
 
 	category := entities.Category{
-		Name:             body.Name,
-		DefaultTags:      body.DefaultTags,
-		DefaultDirectory: body.DefaultDirectory,
-		MetadataSource:   defaultMetadataSource(body.MetadataSource),
-		ReleaseType:      defaultReleaseType(body.ReleaseType),
-		Color:            body.Color,
-		Icon:             body.Icon,
+		Name:               body.Name,
+		DefaultTags:        body.DefaultTags,
+		DefaultDirectories: body.DefaultDirectories,
+		MetadataSource:     defaultMetadataSource(body.MetadataSource),
+		ReleaseType:        defaultReleaseType(body.ReleaseType),
+		Color:              body.Color,
+		Icon:               body.Icon,
 	}
 
 	created, err := m.service.CreateCategory(c.Request.Context(), category)
@@ -141,22 +141,22 @@ func (m *Module) updateCategory(c *gin.Context) {
 
 	// Update only mutable fields (name and ID are immutable)
 	updated := entities.Category{
-		ID:               id,
-		Name:             existing.Name, // Name is immutable
-		DefaultTags:      existing.DefaultTags,
-		DefaultDirectory: existing.DefaultDirectory,
-		MetadataSource:   existing.MetadataSource,
-		ReleaseType:      existing.ReleaseType,
-		Color:            existing.Color,
-		Icon:             existing.Icon,
+		ID:                 id,
+		Name:               existing.Name, // Name is immutable
+		DefaultTags:        existing.DefaultTags,
+		DefaultDirectories: existing.DefaultDirectories,
+		MetadataSource:     existing.MetadataSource,
+		ReleaseType:        existing.ReleaseType,
+		Color:              existing.Color,
+		Icon:               existing.Icon,
 	}
 
 	// Update only provided fields
 	if body.DefaultTags != nil {
 		updated.DefaultTags = body.DefaultTags
 	}
-	if body.DefaultDirectory != "" {
-		updated.DefaultDirectory = body.DefaultDirectory
+	if body.DefaultDirectories != nil {
+		updated.DefaultDirectories = body.DefaultDirectories
 	}
 	if body.MetadataSource != "" {
 		updated.MetadataSource = body.MetadataSource
@@ -207,16 +207,16 @@ func (m *Module) deleteCategory(c *gin.Context) {
 // toResponse converts an entity to a response model
 func (m *Module) toResponse(cat *entities.Category) models.CategoryResponse {
 	return models.CategoryResponse{
-		ID:               cat.ID,
-		Name:             cat.Name,
-		DefaultTags:      cat.DefaultTags,
-		DefaultDirectory: cat.DefaultDirectory,
-		MetadataSource:   defaultMetadataSource(cat.MetadataSource),
-		ReleaseType:      defaultReleaseType(cat.ReleaseType),
-		Color:            cat.Color,
-		Icon:             cat.Icon,
-		CreatedAt:        cat.CreatedAt,
-		UpdatedAt:        cat.UpdatedAt,
+		ID:                 cat.ID,
+		Name:               cat.Name,
+		DefaultTags:        cat.DefaultTags,
+		DefaultDirectories: models.StringArray(cat.DefaultDirectories),
+		MetadataSource:     defaultMetadataSource(cat.MetadataSource),
+		ReleaseType:        defaultReleaseType(cat.ReleaseType),
+		Color:              cat.Color,
+		Icon:               cat.Icon,
+		CreatedAt:          cat.CreatedAt,
+		UpdatedAt:          cat.UpdatedAt,
 	}
 }
 

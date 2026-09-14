@@ -244,12 +244,14 @@ function Categories() {
                           </div>
                         </td>
                         <td className="p-3">
-                          {category.default_directory && (
-                            <div className="flex items-center gap-1 min-w-0">
+                          {category.default_directories?.length > 0 && (
+                            <div className="flex min-w-0 flex-wrap items-center gap-1">
                               <Folder className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono truncate max-w-[240px]">
-                                {category.default_directory}
-                              </span>
+                              {category.default_directories.map((directory) => (
+                                <span key={directory} className="max-w-[240px] truncate rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+                                  {directory}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </td>
@@ -328,12 +330,14 @@ function Categories() {
                     </Button>
                   </div>
 
-                  {category.default_directory && (
-                    <div className="flex items-center gap-1 min-w-0">
+                  {category.default_directories?.length > 0 && (
+                    <div className="flex min-w-0 flex-wrap items-center gap-1">
                       <Folder className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono truncate">
-                        {category.default_directory}
-                      </span>
+                      {category.default_directories.map((directory) => (
+                        <span key={directory} className="max-w-full truncate rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+                          {directory}
+                        </span>
+                      ))}
                     </div>
                   )}
 

@@ -39,16 +39,16 @@ func (s *StringArray) Scan(value interface{}) error {
 }
 
 type Category struct {
-	ID               string      `gorm:"type:varchar(100);primaryKey"`
-	Name             string      `gorm:"size:100;not null;uniqueIndex"`
-	DefaultTags      StringArray `gorm:"type:text"`
-	DefaultDirectory string      `gorm:"column:default_directory;size:255"`
-	MetadataSource   string      `gorm:"size:50;not null;default:'none'"`
-	ReleaseType      string      `gorm:"size:20;not null;default:'none'"`
-	Color            string      `gorm:"size:50"`
-	Icon             string      `gorm:"size:100"`
-	CreatedAt        time.Time   `gorm:"autoCreateTime"`
-	UpdatedAt        time.Time   `gorm:"autoUpdateTime"`
+	ID                 string      `gorm:"type:varchar(100);primaryKey"`
+	Name               string      `gorm:"size:100;not null;uniqueIndex"`
+	DefaultTags        StringArray `gorm:"type:text"`
+	DefaultDirectories StringArray `gorm:"column:default_directories;type:text"`
+	MetadataSource     string      `gorm:"size:50;not null;default:'none'"`
+	ReleaseType        string      `gorm:"size:20;not null;default:'none'"`
+	Color              string      `gorm:"size:50"`
+	Icon               string      `gorm:"size:100"`
+	CreatedAt          time.Time   `gorm:"autoCreateTime"`
+	UpdatedAt          time.Time   `gorm:"autoUpdateTime"`
 }
 
 func (c *Category) BeforeCreate(tx *gorm.DB) (err error) {
@@ -67,14 +67,14 @@ func (c *Category) BeforeUpdate(tx *gorm.DB) (err error) {
 
 // CategoryResponse represents the response body for category operations
 type CategoryResponse struct {
-	ID               string      `json:"id"`
-	Name             string      `json:"name"`
-	DefaultTags      StringArray `json:"default_tags"`
-	DefaultDirectory string      `json:"default_directory"`
-	MetadataSource   string      `json:"metadata_source"`
-	ReleaseType      string      `json:"release_type"`
-	Color            string      `json:"color,omitempty"`
-	Icon             string      `json:"icon,omitempty"`
-	CreatedAt        time.Time   `json:"created_at"`
-	UpdatedAt        time.Time   `json:"updated_at"`
+	ID                 string      `json:"id"`
+	Name               string      `json:"name"`
+	DefaultTags        StringArray `json:"default_tags"`
+	DefaultDirectories StringArray `json:"default_directories"`
+	MetadataSource     string      `json:"metadata_source"`
+	ReleaseType        string      `json:"release_type"`
+	Color              string      `json:"color,omitempty"`
+	Icon               string      `json:"icon,omitempty"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
 }

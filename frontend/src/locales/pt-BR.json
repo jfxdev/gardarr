@@ -775,7 +775,10 @@
         "label": "Diretório",
         "optional": "opcional",
         "autoFilled": "preenchido automaticamente",
-        "placeholder": "Ex: /downloads/movies"
+        "placeholder": "Ex: /downloads/movies",
+        "select": "Selecione um diretório",
+        "searchPlaceholder": "Buscar diretórios...",
+        "noResults": "Nenhum diretório encontrado"
       },
       "tags": {
         "label": "Tags",
@@ -1050,7 +1053,7 @@
     "fields": {
       "name": "Nome",
       "defaultTags": "Tags Padrão",
-      "defaultDirectory": "Diretório Padrão",
+      "defaultDirectories": "Diretórios Padrão",
       "directories": "Diretórios",
       "metadataSource": "Fonte de Metadata",
       "releaseType": "Tipo de release para sugestões",
@@ -1063,6 +1066,8 @@
       "defaultDirectory": "Adicionar um caminho de diretório padrão...",
       "tags": "Digite tags (ex: ação, gênero::ação)"
     },
+    "directoriesHint": "Pressione Enter para adicionar cada diretório.",
+    "removeDirectory": "Remover {{directory}}",
     "metadataSource": {
       "placeholder": "Selecione uma fonte de metadata",
       "help": "Escolha qual fonte externa esta categoria poderá usar para metadata e imagens.",
