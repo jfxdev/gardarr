@@ -30,8 +30,8 @@ export class ErrorBoundary extends Component<Props, State> {
   // only fixable by a full reload; "Try Again" just re-renders the same broken
   // graph. Detect that class and reload once (guarded against a reload loop so a
   // genuine, repeating render bug still surfaces the manual fallback).
-  private static isStaleModuleError(error: Error): boolean {
-    const message = `${error?.name ?? ''} ${error?.message ?? ''}`;
+  private static isStaleModuleError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? '');
     return /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|reading 'useContext'/i.test(message);
   }
 

@@ -141,12 +141,12 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
 
   const addDirectory = () => {
     const directory = directoryInput.trim();
-    if (!directory || createForm.default_directories?.includes(directory)) {
+    if (!directory || createForm.default_directories.includes(directory)) {
       return;
     }
     setCreateForm({
       ...createForm,
-      default_directories: [...(createForm.default_directories || []), directory]
+      default_directories: [...createForm.default_directories, directory]
     });
     setDirectoryInput("");
   };
@@ -154,7 +154,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
   const removeDirectory = (index: number) => {
     setCreateForm({
       ...createForm,
-      default_directories: createForm.default_directories?.filter((_, i) => i !== index) || []
+      default_directories: createForm.default_directories.filter((_, i) => i !== index)
     });
   };
 
@@ -312,10 +312,10 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
           <div className="space-y-1.5">
             <Label htmlFor="directory" className="text-sm">{t('categories.fields.defaultDirectories')}</Label>
             <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5">
-              {createForm.default_directories?.map((directory, index) => (
+              {createForm.default_directories.map((directory, index) => (
                 <span key={directory} className="inline-flex max-w-full items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                   <span className="truncate">{directory}</span>
-                  <button type="button" onClick={() => removeDirectory(index)} aria-label={t('categories.removeDirectory', { directory })}>
+                  <button type="button" onClick={() => { removeDirectory(index); }} aria-label={t('categories.removeDirectory', { directory })}>
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -324,7 +324,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
                 id="directory"
                 placeholder={t('categories.placeholders.defaultDirectory')}
                 value={directoryInput}
-                onChange={(event) => setDirectoryInput(event.target.value)}
+                onChange={(event) => { setDirectoryInput(event.target.value); }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
