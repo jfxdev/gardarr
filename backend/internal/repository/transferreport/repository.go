@@ -155,7 +155,7 @@ func (r *Repository) LatestRunErrors(ctx context.Context, start, end time.Time) 
 	var row models.TransferSnapshotRun
 	err := r.db.DB.WithContext(ctx).
 		Where("scheduled_at > ? AND scheduled_at <= ?", start.UTC(), end.UTC()).
-		Order("scheduled_at DESC").
+		Order("captured_at DESC, scheduled_at DESC").
 		First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
