@@ -525,6 +525,9 @@ func spaFallbackHandler(c *gin.Context) {
 
 	indexPath := filepath.Join("./web", "index.html")
 	if _, err := os.Stat(indexPath); err == nil {
+		// The SPA shell must be revalidated on every navigation. Its referenced
+		// hashed assets remain independently cacheable.
+		c.Header("Cache-Control", "no-store")
 		c.File(indexPath)
 	} else {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Frontend not found"})

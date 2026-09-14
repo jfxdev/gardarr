@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Bell, CheckCircle2, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, BarChart3, Bell, CheckCircle, CheckCircle2, Plus, PlusCircle, Send, Trash2, Wifi, WifiOff, XCircle, type LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Toggle } from '@/components/ui/toggle'
 import { Badge } from '@/components/ui/badge'
-import { EVENT_TYPE_OPTIONS, type EventType } from '@/constants/eventTypes'
+import { EVENT_TYPE_LABELS, EVENT_TYPES_BY_GROUP, type EventGroup, type EventType } from '@/constants/eventTypes'
 import { discordService } from '@/services/discord'
 import type { DiscordIntegration, DiscordIntegrationInput } from '@/types/discord'
 import { toast } from 'sonner'
@@ -19,6 +20,37 @@ const blank = (): Required<DiscordIntegrationInput> => ({
 })
 
 const toTerms = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
+
+const EVENT_TYPE_GROUPS: readonly { group: Exclude<EventGroup, 'all'>; labelKey: string; defaultLabel: string }[] = [
+  { group: 'torrent', labelKey: 'discord.eventTypeGroup.torrents', defaultLabel: 'Torrents' },
+  { group: 'worker', labelKey: 'discord.eventTypeGroup.workers', defaultLabel: 'Workers' },
+  { group: 'schedule', labelKey: 'discord.eventTypeGroup.schedule', defaultLabel: 'Bandwidth schedule' },
+  { group: 'report', labelKey: 'discord.eventTypeGroup.reports', defaultLabel: 'Transfer reports' },
+]
+
+const EVENT_TYPE_ICONS: Record<EventType, LucideIcon> = {
+  'torrent.state_change': ArrowRightLeft,
+  'torrent.added': PlusCircle,
+  'torrent.removed': XCircle,
+  'torrent.completed': CheckCircle,
+  'bandwidth.schedule_applied': ArrowRightLeft,
+  'worker.offline': WifiOff,
+  'worker.recovered': Wifi,
+  'report.transfer.daily': BarChart3,
+  'report.transfer.weekly': BarChart3,
+}
+
+const EVENT_TYPE_ICON_COLORS: Record<EventType, string> = {
+  'torrent.state_change': 'text-amber-600 dark:text-amber-400',
+  'torrent.added': 'text-blue-600 dark:text-blue-400',
+  'torrent.removed': 'text-red-600 dark:text-red-400',
+  'torrent.completed': 'text-emerald-600 dark:text-emerald-400',
+  'bandwidth.schedule_applied': 'text-violet-600 dark:text-violet-400',
+  'worker.offline': 'text-red-600 dark:text-red-400',
+  'worker.recovered': 'text-emerald-600 dark:text-emerald-400',
+  'report.transfer.daily': 'text-orange-600 dark:text-orange-400',
+  'report.transfer.weekly': 'text-orange-600 dark:text-orange-400',
+}
 
 export default function IntegrationDiscordPage() {
   const { t } = useTranslation()
@@ -121,20 +153,23 @@ export default function IntegrationDiscordPage() {
       ) : (
         <div className="grid gap-4">
           {items.map((item) => (
-            <Card key={item.uuid}>
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-primary" />{item.name}</CardTitle>
+            <Card key={item.uuid} className="gap-0 py-0 transition-shadow hover:shadow-md">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary"><Bell className="h-5 w-5" /></div>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate">{item.name}</CardTitle>
                     <CardDescription>{item.all_events ? t('discord.allEvents', 'All events') : t('discord.selectedEvents', '{{count}} selected events', { count: item.event_types.length })}</CardDescription>
                   </div>
-                  <Badge variant={item.enabled ? 'secondary' : 'outline'}>{item.enabled ? t('discord.enabled', 'Enabled') : t('discord.disabled', 'Disabled')}</Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => { void test(item) }}><Send className="mr-2 h-4 w-4" />{t('discord.test', 'Test')}</Button>
-                <Button size="sm" variant="outline" onClick={() => { openEdit(item) }}>{t('common.edit', 'Edit')}</Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { void remove(item) }}><Trash2 className="mr-2 h-4 w-4" />{t('common.delete', 'Delete')}</Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Badge className="w-fit self-end sm:self-auto" variant={item.enabled ? 'secondary' : 'outline'}>{item.enabled ? t('discord.enabled', 'Enabled') : t('discord.disabled', 'Disabled')}</Badge>
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => { void test(item) }}><Send className="mr-2 h-4 w-4" />{t('discord.test', 'Test')}</Button>
+                    <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => { openEdit(item) }}>{t('common.edit', 'Edit')}</Button>
+                    <Button size="sm" variant="ghost" className="col-span-2 w-full text-destructive sm:col-auto sm:w-auto" onClick={() => { void remove(item) }}><Trash2 className="mr-2 h-4 w-4" />{t('common.delete', 'Delete')}</Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -142,38 +177,59 @@ export default function IntegrationDiscordPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="scrollbar max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? t('discord.edit', 'Edit Discord destination') : t('discord.create', 'Add Discord destination')}</DialogTitle>
             <DialogDescription>{t('discord.secretHelp', 'The webhook URL is encrypted and is never shown again after saving.')}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2"><Label>{t('discord.name', 'Name')}</Label><Input value={form.name} onChange={(event) => { setForm((value) => ({ ...value, name: event.target.value })) }} /></div>
-            <div className="space-y-2"><Label>{t('discord.webhookUrl', 'Discord webhook URL')}</Label><Input type="password" placeholder={editing ? t('discord.keepUrl', 'Leave blank to keep the current URL') : 'https://discord.com/api/webhooks/...'} value={form.webhook_url} onChange={(event) => { setForm((value) => ({ ...value, webhook_url: event.target.value })) }} /></div>
-            <div className="flex items-center justify-between rounded-lg border p-3"><Label>{t('discord.enabled', 'Enabled')}</Label><Switch checked={form.enabled} onCheckedChange={(enabled) => { setForm((value) => ({ ...value, enabled })) }} /></div>
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div><Label>{t('discord.allEvents', 'All events')}</Label><p className="text-xs text-muted-foreground">{t('discord.allEventsHelp', 'Includes future Gardarr event types.')}</p></div>
-              <Switch checked={form.all_events} onCheckedChange={(all_events) => { setForm((value) => ({ ...value, all_events })) }} />
-            </div>
-            {!form.all_events && (
-              <div className="space-y-2">
-                <Label>{t('discord.eventTypes', 'Event types')}</Label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {EVENT_TYPE_OPTIONS.map(({ type, label }) => (
-                    <label key={type} className="flex items-center gap-2 rounded border p-2 text-sm">
-                      <input type="checkbox" checked={form.event_types.includes(type)} onChange={() => { toggleType(type) }} />
-                      {label}
-                    </label>
-                  ))}
+          <div className="space-y-3">
+            <Card className="gap-0 py-0">
+              <CardHeader className="px-4 pt-4 pb-0"><CardTitle className="text-base">{t('discord.destination', 'Destination')}</CardTitle></CardHeader>
+              <CardContent className="space-y-4 p-4">
+                <div className="space-y-2"><Label>{t('discord.name', 'Name')}</Label><Input value={form.name} onChange={(event) => { setForm((value) => ({ ...value, name: event.target.value })) }} /></div>
+                <div className="space-y-2"><Label>{t('discord.webhookUrl', 'Discord webhook URL')}</Label><Input type="password" placeholder={editing ? t('discord.keepUrl', 'Leave blank to keep the current URL') : 'https://discord.com/api/webhooks/...'} value={form.webhook_url} onChange={(event) => { setForm((value) => ({ ...value, webhook_url: event.target.value })) }} /></div>
+              </CardContent>
+            </Card>
+            <Card className="gap-0 py-0">
+              <CardHeader className="px-4 pt-4 pb-0"><CardTitle className="text-base">{t('discord.delivery', 'Delivery')}</CardTitle></CardHeader>
+              <CardContent className="space-y-4 p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3"><Label>{t('discord.enabled', 'Enabled')}</Label><Switch checked={form.enabled} onCheckedChange={(enabled) => { setForm((value) => ({ ...value, enabled })) }} /></div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <Label>{t('discord.allEvents', 'All events')}</Label>
+                    <Switch checked={form.all_events} onCheckedChange={(all_events) => { setForm((value) => ({ ...value, all_events })) }} />
+                  </div>
                 </div>
-              </div>
-            )}
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-2"><Label>{t('discord.statusFilter', 'Statuses')}</Label><Input placeholder="UPLOADING, ERROR" value={form.status_filter.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, status_filter: toTerms(event.target.value) })) }} /></div>
-              <div className="space-y-2"><Label>{t('discord.categoryFilter', 'Categories')}</Label><Input placeholder="movies, shows" value={form.category_filter.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, category_filter: toTerms(event.target.value) })) }} /></div>
-              <div className="space-y-2"><Label>{t('discord.nameFilter', 'Name terms')}</Label><Input placeholder="1080p, linux" value={form.name_terms.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, name_terms: toTerms(event.target.value) })) }} /></div>
-            </div>
-            <p className="text-xs text-muted-foreground">{t('discord.filterHelp', 'Torrent filters only apply to torrent events; reports and worker events still follow their event selection.')}</p>
+                {!form.all_events && (
+                  <div className="space-y-2">
+                    <Label>{t('discord.eventTypes', 'Event types')}</Label>
+                    <div className="space-y-4">
+                      {EVENT_TYPE_GROUPS.map(({ group, labelKey, defaultLabel }) => (
+                        <fieldset key={group} className="space-y-2">
+                          <legend className="text-sm font-medium text-muted-foreground/80">{t(labelKey, defaultLabel)}</legend>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {EVENT_TYPES_BY_GROUP[group].map((type) => (
+                              <EventTypeToggle key={type} type={type} pressed={form.event_types.includes(type)} onPressedChange={() => { toggleType(type) }} />
+                            ))}
+                          </div>
+                        </fieldset>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="gap-0 py-0">
+              <CardHeader className="px-4 pt-4 pb-0"><CardTitle className="text-base">{t('discord.filters', 'Filters')}</CardTitle></CardHeader>
+              <CardContent className="space-y-4 p-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2"><Label>{t('discord.statusFilter', 'Statuses')}</Label><Input placeholder="UPLOADING, ERROR" value={form.status_filter.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, status_filter: toTerms(event.target.value) })) }} /></div>
+                  <div className="space-y-2"><Label>{t('discord.categoryFilter', 'Categories')}</Label><Input placeholder="movies, shows" value={form.category_filter.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, category_filter: toTerms(event.target.value) })) }} /></div>
+                  <div className="space-y-2"><Label>{t('discord.nameFilter', 'Name terms')}</Label><Input placeholder="1080p, linux" value={form.name_terms.join(', ')} onChange={(event) => { setForm((value) => ({ ...value, name_terms: toTerms(event.target.value) })) }} /></div>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('discord.filterHelp', 'Torrent filters only apply to torrent events; reports and worker events still follow their event selection.')}</p>
+              </CardContent>
+            </Card>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false) }}>{t('common.cancel', 'Cancel')}</Button>
@@ -182,5 +238,22 @@ export default function IntegrationDiscordPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function EventTypeToggle({ type, pressed, onPressedChange }: { type: EventType; pressed: boolean; onPressedChange: () => void }) {
+  const Icon = EVENT_TYPE_ICONS[type]
+
+  return (
+    <Toggle
+      type="button"
+      variant="outline"
+      pressed={pressed}
+      className="cursor-pointer justify-start gap-2 data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+      onPressedChange={onPressedChange}
+    >
+      <Icon className={`h-4 w-4 shrink-0 ${EVENT_TYPE_ICON_COLORS[type]}`} aria-hidden="true" />
+      {EVENT_TYPE_LABELS[type]}
+    </Toggle>
   )
 }

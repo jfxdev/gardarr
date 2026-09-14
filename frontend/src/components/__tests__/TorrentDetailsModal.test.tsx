@@ -12,6 +12,10 @@ const mockUpdateTaskCategory = vi.fn();
 const mockUpdateTaskTags = vi.fn();
 const mockListCategories = vi.fn();
 const mockPreferencesLoad = vi.fn();
+let dialogContentProps: {
+  className?: string;
+  onOpenAutoFocus?: (event: Event) => void;
+} = {};
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -54,7 +58,14 @@ vi.mock("@/services/preferences", () => ({
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children, open }: { children: ReactNode; open?: boolean }) =>
     open === false ? null : <div>{children}</div>,
-  DialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DialogContent: ({ children, className, onOpenAutoFocus }: {
+    children: ReactNode;
+    className?: string;
+    onOpenAutoFocus?: (event: Event) => void;
+  }) => {
+    dialogContentProps = { className, onOpenAutoFocus };
+    return <div>{children}</div>;
+  },
   DialogDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -233,6 +244,7 @@ describe("TorrentDetailsModal", () => {
     mockUpdateTaskTags.mockReset();
     mockListCategories.mockReset();
     mockPreferencesLoad.mockReset();
+    dialogContentProps = {};
 
     mockApiPut.mockResolvedValue({ data: {} });
     mockUpdateTaskCategory.mockResolvedValue({ data: null });
@@ -274,6 +286,27 @@ describe("TorrentDetailsModal", () => {
       expect(onUpdate).toHaveBeenCalledTimes(1);
       expect(mockToastSuccess).toHaveBeenCalled();
     });
+  });
+
+  it("uses the full mobile viewport, a narrower desktop width, and does not move focus on open", async () => {
+    render(
+      <TorrentDetailsModal
+        torrent={baseTask}
+        isOpen={true}
+        onClose={() => undefined}
+      />
+    );
+
+    await waitFor(() => expect(mockListCategories).toHaveBeenCalled());
+
+    const event = { preventDefault: vi.fn() } as unknown as Event;
+    dialogContentProps.onOpenAutoFocus?.(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(dialogContentProps.className).toContain("h-[100dvh]");
+    expect(dialogContentProps.className).toContain("!max-h-[100dvh]");
+    expect(dialogContentProps.className).toContain("sm:!w-[80rem]");
+    expect(dialogContentProps.className).toContain("sm:!max-w-[calc(100vw-2rem)]");
   });
 
   it("refreshes after saving category", async () => {

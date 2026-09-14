@@ -185,6 +185,39 @@ func (s *Service) ReconcileWorker(ctx context.Context, worker *entities.Worker) 
 	s.mu.Lock()
 	last, exists := s.lastApplied[worker.UUID]
 	s.mu.Unlock()
+	if !exists {
+		last, exists, err = s.loadLastApplied(ctx, worker.UUID)
+		if err != nil {
+			logger.Debug("bandwidth scheduler: load last applied state failed", "worker_id", worker.UUID.String(), "error", err.Error())
+			return
+		}
+		if exists {
+			s.mu.Lock()
+			s.lastApplied[worker.UUID] = last
+			s.mu.Unlock()
+		}
+		if !exists && desired.source == "schedule" {
+			// Upgrades from versions that kept this state only in memory have no
+			// durable marker yet. Seed it without an event when qBittorrent already
+			// has the desired limits, so the deployment restart itself is silent.
+			preferences, preferencesErr := s.workers.GetPreferences(ctx, worker)
+			if preferencesErr != nil {
+				logger.Debug("bandwidth scheduler: inspect current limits failed", "worker_id", worker.UUID.String(), "error", preferencesErr.Error())
+				return
+			}
+			current := preferences.GlobalRateLimits
+			if current.DownloadSpeedLimit == desired.limits.DownloadLimit && current.UploadSpeedLimit == desired.limits.UploadLimit {
+				if persistErr := s.persistLastApplied(ctx, worker.UUID, desired); persistErr != nil {
+					logger.Debug("bandwidth scheduler: seed applied state failed", "worker_id", worker.UUID.String(), "error", persistErr.Error())
+					return
+				}
+				s.mu.Lock()
+				s.lastApplied[worker.UUID] = desired
+				s.mu.Unlock()
+				return
+			}
+		}
+	}
 	// A scheduler restart must not overwrite an out-of-band manual qBittorrent
 	// change just because no schedule is active. The baseline is applied once a
 	// schedule that Gardarr applied ends (or on an explicit schedule deletion).
@@ -199,7 +232,11 @@ func (s *Service) ReconcileWorker(ctx context.Context, worker *entities.Worker) 
 		return
 	}
 	s.mu.Lock()
-	s.lastApplied[worker.UUID] = desired
+	if desired.source == "schedule" {
+		s.lastApplied[worker.UUID] = desired
+	} else {
+		delete(s.lastApplied, worker.UUID)
+	}
 	s.mu.Unlock()
 }
 
@@ -207,6 +244,9 @@ func (s *Service) apply(ctx context.Context, worker *entities.Worker, target, pr
 	d, u := target.limits.DownloadLimit, target.limits.UploadLimit
 	if err := s.workers.SetWorkerGlobalSpeedLimits(ctx, worker, schemas.InstanceSetSpeedLimitSchema{DownloadLimit: &d, UploadLimit: &u}); err != nil {
 		return err
+	}
+	if err := s.persistLastApplied(ctx, worker.UUID, target); err != nil {
+		return fmt.Errorf("persist applied bandwidth schedule: %w", err)
 	}
 	old := map[string]int{}
 	if hadPrevious {
@@ -222,6 +262,45 @@ func (s *Service) apply(ctx context.Context, worker *entities.Worker, target, pr
 		logger.Debug("bandwidth scheduler: event failed", "error", err.Error())
 	}
 	return nil
+}
+
+func (s *Service) loadLastApplied(ctx context.Context, workerID uuid.UUID) (applied, bool, error) {
+	var row models.Worker
+	err := s.db.DB.WithContext(ctx).
+		Select("last_applied_bandwidth_schedule_uuid", "last_applied_download_speed_limit", "last_applied_upload_speed_limit").
+		Where(uuidCondition, workerID).
+		First(&row).Error
+	if err != nil {
+		return applied{}, false, err
+	}
+	if row.LastAppliedBandwidthScheduleUUID == nil && row.LastAppliedDownloadSpeedLimit == nil && row.LastAppliedUploadSpeedLimit == nil {
+		return applied{}, false, nil
+	}
+	if row.LastAppliedBandwidthScheduleUUID == nil || row.LastAppliedDownloadSpeedLimit == nil || row.LastAppliedUploadSpeedLimit == nil {
+		return applied{}, false, errors.New("incomplete persisted bandwidth schedule state")
+	}
+	return applied{
+		limits: Limits{
+			DownloadLimit: *row.LastAppliedDownloadSpeedLimit,
+			UploadLimit:   *row.LastAppliedUploadSpeedLimit,
+		},
+		source:     "schedule",
+		scheduleID: *row.LastAppliedBandwidthScheduleUUID,
+	}, true, nil
+}
+
+func (s *Service) persistLastApplied(ctx context.Context, workerID uuid.UUID, state applied) error {
+	values := map[string]interface{}{
+		"last_applied_bandwidth_schedule_uuid": nil,
+		"last_applied_download_speed_limit":    nil,
+		"last_applied_upload_speed_limit":      nil,
+	}
+	if state.source == "schedule" {
+		values["last_applied_bandwidth_schedule_uuid"] = state.scheduleID
+		values["last_applied_download_speed_limit"] = state.limits.DownloadLimit
+		values["last_applied_upload_speed_limit"] = state.limits.UploadLimit
+	}
+	return s.db.DB.WithContext(ctx).Model(&models.Worker{}).Where(uuidCondition, workerID).Updates(values).Error
 }
 
 func (s *Service) List(ctx context.Context, workerID uuid.UUID) ([]Schedule, error) {

@@ -349,13 +349,6 @@ func (r *Repository) DeleteTaskStates(ctx context.Context, workerID uuid.UUID, h
 		Delete(&models.TaskState{}).Error
 }
 
-// DeleteOldTaskStates deletes task states older than the specified date
-func (r *Repository) DeleteOldTaskStates(ctx context.Context, olderThan time.Time) error {
-	return r.db.DB.WithContext(ctx).
-		Where("updated_at < ?", olderThan).
-		Delete(&models.TaskState{}).Error
-}
-
 // HasCompletedEvent checks if a torrent.completed event already exists for the given task hash
 func (r *Repository) HasCompletedEvent(ctx context.Context, workerID uuid.UUID, taskHash string) (bool, error) {
 	result := r.db.DB.WithContext(ctx).

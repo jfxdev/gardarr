@@ -37,6 +37,11 @@ export default defineConfig({
   server: {
     port: 3500,
     strictPort: true,
+    headers: {
+      // Always load the current HTML document during development. Vite's
+      // versioned module assets can still be cached normally.
+      'Cache-Control': 'no-store',
+    },
     proxy: {
       '/v1': {
         target: 'http://localhost:3501',

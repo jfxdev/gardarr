@@ -1,7 +1,5 @@
-const CACHE_NAME = 'gardarr-v3';
+const CACHE_NAME = 'gardarr-v4';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/logo.ico',
   '/logo-192.png',
   '/logo-512.png',
@@ -57,6 +55,13 @@ globalThis.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http(s) requests
   if (!url.protocol.startsWith('http')) return;
+
+  // The HTML shell must always come from the network so a deployed page is
+  // never held by the service worker. Keep caching versioned assets below.
+  if (request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // API requests - network first
   if (url.pathname.startsWith('/v1/')) {

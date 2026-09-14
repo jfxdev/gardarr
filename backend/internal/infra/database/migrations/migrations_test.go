@@ -129,7 +129,7 @@ func TestMigrationAllMigrationsCanRunTwice(t *testing.T) {
 	assertSeededCategories(t, db)
 }
 
-func TestMigration036CreatesBandwidthSchedulesAndBaselineColumns(t *testing.T) {
+func TestMigrationsCreateBandwidthSchedulesAndPersistentRuntimeState(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
@@ -147,6 +147,11 @@ func TestMigration036CreatesBandwidthSchedulesAndBaselineColumns(t *testing.T) {
 	}
 	if !db.Migrator().HasColumn(&models.BandwidthSchedule{}, "Color") {
 		t.Fatal("Expected schedule color column to exist")
+	}
+	for _, column := range []string{"LastAppliedBandwidthScheduleUUID", "LastAppliedDownloadSpeedLimit", "LastAppliedUploadSpeedLimit"} {
+		if !db.Migrator().HasColumn(&models.Worker{}, column) {
+			t.Fatalf("Expected persistent bandwidth schedule column %s to exist", column)
+		}
 	}
 }
 

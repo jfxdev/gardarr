@@ -362,13 +362,13 @@ func TestTrackTasks_UpdatesNameOnRename(t *testing.T) {
 	}, workerID, time.Now())
 	require.NoError(t, err)
 
-	// Same hash, new name, progress change triggers persistence
+	// Same hash and telemetry, only the name changed.
 	err = svc.TrackTasks(ctx, []*entities.Task{
 		{
 			Hash:     taskHash,
 			Name:     "New Name",
 			State:    constants.TaskStatusDownloading,
-			Progress: 0.6,
+			Progress: 0.5,
 		},
 	}, workerID, time.Now())
 	require.NoError(t, err)
@@ -381,6 +381,72 @@ func TestTrackTasks_UpdatesNameOnRename(t *testing.T) {
 	states, err := svc.repo.LoadTaskStates(ctx, workerID)
 	require.NoError(t, err)
 	assert.Equal(t, "New Name", states[taskHash].Name)
+}
+
+func TestRestartUsesPersistedSnapshotAndEmitsOnlyDiff(t *testing.T) {
+	db := database.SetupTestDBWithMigrations(t)
+	ctx := context.Background()
+	workerID := uuid.New()
+	oldTimestamp := time.Now().UTC().Add(-30 * 24 * time.Hour)
+
+	beforeRestart, err := NewService(db)
+	require.NoError(t, err)
+	require.NoError(t, beforeRestart.TrackTasks(ctx, []*entities.Task{
+		{Hash: "unchanged", Name: "Unchanged", State: constants.TaskStatusDownloading, Progress: 0.4},
+		{Hash: "changed", Name: "Changed", State: constants.TaskStatusDownloading, Progress: 0.5},
+		{Hash: "removed", Name: "Removed", State: constants.TaskStatusUploading, Progress: 1.0},
+	}, workerID, oldTimestamp))
+
+	// Event retention may purge old history, but the comparison snapshot must
+	// survive indefinitely so an outage or reboot cannot turn it into additions.
+	beforeRestart.runCleanup(ctx)
+	states, err := beforeRestart.repo.LoadTaskStates(ctx, workerID)
+	require.NoError(t, err)
+	require.Len(t, states, 3)
+
+	afterRestart, err := NewService(db)
+	require.NoError(t, err)
+	eventCh := afterRestart.Subscribe(10)
+	now := time.Now().UTC()
+
+	require.NoError(t, afterRestart.TrackTasks(ctx, []*entities.Task{
+		{Hash: "unchanged", Name: "Unchanged", State: constants.TaskStatusDownloading, Progress: 0.4},
+		{Hash: "changed", Name: "Changed", State: constants.TaskStatusError, Progress: 0.5},
+		{Hash: "added", Name: "Added", State: constants.TaskStatusDownloading, Progress: 0.1},
+	}, workerID, now))
+	require.NoError(t, afterRestart.DetectRemovedTasks(ctx, []*entities.Task{
+		{Hash: "unchanged"},
+		{Hash: "changed"},
+		{Hash: "added"},
+	}, workerID, now))
+
+	received := make(map[string]*entities.Event)
+	for len(received) < 3 {
+		select {
+		case event := <-eventCh:
+			received[event.Type+":"+event.TaskHash] = event
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for diff events; received %#v", received)
+		}
+	}
+
+	assert.Contains(t, received, constants.EventTypeTorrentStateChange+":changed")
+	assert.Contains(t, received, constants.EventTypeTorrentAdded+":added")
+	assert.Contains(t, received, constants.EventTypeTorrentRemoved+":removed")
+	assert.NotContains(t, received, constants.EventTypeTorrentAdded+":unchanged")
+
+	select {
+	case event := <-eventCh:
+		t.Fatalf("unexpected extra event after restart: %s for %s", event.Type, event.TaskHash)
+	default:
+	}
+
+	states, err = afterRestart.repo.LoadTaskStates(ctx, workerID)
+	require.NoError(t, err)
+	assert.Contains(t, states, "unchanged")
+	assert.Contains(t, states, "changed")
+	assert.Contains(t, states, "added")
+	assert.NotContains(t, states, "removed")
 }
 
 func TestDetectRemovedTasks_MetadataIncludesName(t *testing.T) {
