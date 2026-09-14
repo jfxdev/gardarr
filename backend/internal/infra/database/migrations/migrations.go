@@ -822,6 +822,32 @@ func Register(m *migration.Migrator) {
 				return db.Migrator().DropTable(&models.DiscordDeliveryHistory{}, &models.DiscordIntegration{})
 			},
 		},
+		{
+			Version:     "044_persist_bandwidth_schedule_state",
+			Description: "Persiste o último schedule de banda aplicado por worker para evitar reaplicação após reinício",
+			Up: func(db *gorm.DB) error {
+				for _, field := range []string{"LastAppliedBandwidthScheduleUUID", "LastAppliedDownloadSpeedLimit", "LastAppliedUploadSpeedLimit"} {
+					if db.Migrator().HasColumn(&models.Worker{}, field) {
+						continue
+					}
+					if err := db.Migrator().AddColumn(&models.Worker{}, field); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			Down: func(db *gorm.DB) error {
+				for _, field := range []string{"LastAppliedUploadSpeedLimit", "LastAppliedDownloadSpeedLimit", "LastAppliedBandwidthScheduleUUID"} {
+					if !db.Migrator().HasColumn(&models.Worker{}, field) {
+						continue
+					}
+					if err := db.Migrator().DropColumn(&models.Worker{}, field); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
 	})
 }
 

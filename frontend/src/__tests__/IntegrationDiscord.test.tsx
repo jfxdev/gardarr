@@ -41,8 +41,36 @@ describe('IntegrationDiscordPage', () => {
     await waitFor(() => expect(testDelivery).toHaveBeenCalledWith('discord-1'))
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     expect(screen.getByPlaceholderText('Leave blank to keep the current URL')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveClass('scrollbar')
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(remove).toHaveBeenCalledWith('discord-1'))
+  })
+
+  it('groups event types by category when editing a destination', async () => {
+    list.mockResolvedValue({ data: [destination] })
+    render(<IntegrationDiscordPage />)
+    await screen.findByText('Alerts')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByText('Destination')).toBeInTheDocument()
+    expect(screen.getByText('Delivery')).toBeInTheDocument()
+    expect(screen.getByText('Filters')).toBeInTheDocument()
+    expect(screen.getByText('Torrents')).toBeInTheDocument()
+    expect(screen.getByText('Workers')).toBeInTheDocument()
+    expect(screen.getByText('Bandwidth schedule')).toBeInTheDocument()
+    expect(screen.getByText('Transfer reports')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Schedule applied' })).toBeInTheDocument()
+
+    const workerOffline = screen.getByRole('button', { name: 'Worker offline' })
+    expect(workerOffline).toHaveAttribute('aria-pressed', 'false')
+    expect(workerOffline).toHaveAttribute('data-state', 'off')
+    fireEvent.click(workerOffline)
+    expect(workerOffline).toHaveAttribute('aria-pressed', 'true')
+    expect(workerOffline).toHaveAttribute('data-state', 'on')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(update).toHaveBeenCalledWith('discord-1', expect.objectContaining({
+      event_types: ['report.transfer.daily', 'worker.offline'],
+    })))
   })
 })

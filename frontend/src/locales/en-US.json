@@ -61,6 +61,7 @@
     "profile": "Profile",
     "about": "About",
     "toggleSidebar": "Toggle sidebar",
+    "resizeSidebar": "Adjust sidebar width",
     "sections": {
       "library": "Library",
       "management": "Management",
@@ -1788,11 +1789,20 @@
     "edit": "Edit Discord destination",
     "create": "Add Discord destination",
     "secretHelp": "The webhook URL is encrypted and is never shown again after saving.",
+    "destination": "Destination",
+    "delivery": "Delivery",
+    "filters": "Filters",
     "name": "Name",
     "webhookUrl": "Discord webhook URL",
     "keepUrl": "Leave blank to keep the current URL",
     "allEventsHelp": "Includes future Gardarr event types.",
     "eventTypes": "Event types",
+    "eventTypeGroup": {
+      "torrents": "Torrents",
+      "workers": "Workers",
+      "schedule": "Bandwidth schedule",
+      "reports": "Transfer reports"
+    },
     "statusFilter": "Statuses",
     "categoryFilter": "Categories",
     "nameFilter": "Name terms",

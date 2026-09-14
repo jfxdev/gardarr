@@ -89,7 +89,10 @@ export function TorrentHeroHeader({ torrent, onUpdate }: TorrentHeroHeaderProps)
             onSave={handleSaveName}
             display={
               <div>
-                <span className="text-xs sm:text-sm font-semibold break-words leading-relaxed">
+                <span
+                  className="block truncate text-xs font-semibold leading-relaxed sm:overflow-visible sm:text-clip sm:whitespace-normal sm:text-sm sm:break-words"
+                  title={torrent.metadata?.name || torrent.name}
+                >
                   {torrent.metadata?.name || torrent.name}
                   {torrent.metadata?.release_date && (
                     <span className="text-muted-foreground font-normal ml-2">({torrent.metadata.release_date})</span>

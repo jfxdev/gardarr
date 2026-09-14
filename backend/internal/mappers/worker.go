@@ -11,16 +11,16 @@ func ToWorkerResponse(e *entities.Worker) *models.WorkerResponse {
 	}
 
 	return &models.WorkerResponse{
-		UUID:       e.UUID.String(),
-		Name:       e.Name,
-		Address:    e.Address,
-		Status:     e.Status,
-		Error:      e.Error,
-		ErrorCode:  string(e.ErrorCode),
-		Permanent:  e.Permanent,
-		Icon:       e.Icon,
-		Color:      e.Color,
-		Instance:   ToInstanceResponse(e.Instance),
+		UUID:      e.UUID.String(),
+		Name:      e.Name,
+		Address:   e.Address,
+		Status:    e.Status,
+		Error:     e.Error,
+		ErrorCode: string(e.ErrorCode),
+		Permanent: e.Permanent,
+		Icon:      e.Icon,
+		Color:     e.Color,
+		Instance:  ToInstanceResponse(e.Instance),
 	}
 }
 

@@ -239,6 +239,92 @@ func TestPreviewAndReconcileApplyOnlyWhenTargetChanges(t *testing.T) {
 	}
 }
 
+func TestReconcileWorkerReloadsAppliedScheduleAfterRestart(t *testing.T) {
+	service, worker, workers, events := setupService(t)
+	day := int(time.Now().UTC().Weekday())
+	scheduleID := uuid.New()
+	row := models.BandwidthSchedule{
+		UUID: scheduleID, WorkerUUID: worker.UUID, Name: "active", DaysOfWeek: uint8(1 << day),
+		StartMinute: 0, EndMinute: 0, DownloadLimit: 500, UploadLimit: 50, Priority: 1, Color: "#64748b", Enabled: true,
+	}
+	if err := service.db.DB.Create(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	service.ReconcileWorker(context.Background(), worker)
+	workers.mu.Lock()
+	firstApplications := len(workers.applied)
+	workers.mu.Unlock()
+	if firstApplications != 1 || len(events.events) != 1 {
+		t.Fatalf("expected initial schedule application and event, got %d / %d", firstApplications, len(events.events))
+	}
+
+	var storedWorker models.Worker
+	if err := service.db.DB.First(&storedWorker, "uuid = ?", worker.UUID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if storedWorker.LastAppliedBandwidthScheduleUUID == nil || *storedWorker.LastAppliedBandwidthScheduleUUID != scheduleID ||
+		storedWorker.LastAppliedDownloadSpeedLimit == nil || *storedWorker.LastAppliedDownloadSpeedLimit != 500 ||
+		storedWorker.LastAppliedUploadSpeedLimit == nil || *storedWorker.LastAppliedUploadSpeedLimit != 50 {
+		t.Fatalf("expected applied schedule state to be persisted, got %#v", storedWorker)
+	}
+
+	restartedWorkers := &fakeWorkers{preferences: workers.preferences}
+	restartedEvents := &fakeEvents{}
+	restarted := &Service{
+		db: service.db, workers: restartedWorkers, settings: fakeSettings{timezone: "UTC"}, events: restartedEvents,
+		lastApplied: make(map[uuid.UUID]applied), locks: make(map[uuid.UUID]*sync.Mutex),
+	}
+	restarted.ReconcileWorker(context.Background(), worker)
+	restartedWorkers.mu.Lock()
+	restartApplications := len(restartedWorkers.applied)
+	restartedWorkers.mu.Unlock()
+	if restartApplications != 0 || len(restartedEvents.events) != 0 {
+		t.Fatalf("restart must not reapply or emit an unchanged schedule, got %d / %d", restartApplications, len(restartedEvents.events))
+	}
+
+	if err := restarted.db.DB.Model(&models.BandwidthSchedule{}).Where("uuid = ?", scheduleID).Update("download_limit", 600).Error; err != nil {
+		t.Fatal(err)
+	}
+	restarted.ReconcileWorker(context.Background(), worker)
+	restartedWorkers.mu.Lock()
+	changedApplications := append([]Limits(nil), restartedWorkers.applied...)
+	restartedWorkers.mu.Unlock()
+	if len(changedApplications) != 1 || changedApplications[0] != (Limits{DownloadLimit: 600, UploadLimit: 50}) || len(restartedEvents.events) != 1 {
+		t.Fatalf("expected only the real post-restart diff, got %#v / %d events", changedApplications, len(restartedEvents.events))
+	}
+}
+
+func TestReconcileWorkerSeedsLegacyScheduleWithoutDuplicateEvent(t *testing.T) {
+	service, worker, workers, events := setupService(t)
+	day := int(time.Now().UTC().Weekday())
+	scheduleID := uuid.New()
+	row := models.BandwidthSchedule{
+		UUID: scheduleID, WorkerUUID: worker.UUID, Name: "already active", DaysOfWeek: uint8(1 << day),
+		StartMinute: 0, EndMinute: 0, DownloadLimit: 500, UploadLimit: 50, Priority: 1, Color: "#64748b", Enabled: true,
+	}
+	if err := service.db.DB.Create(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+	workers.preferences = &entities.InstancePreferences{GlobalRateLimits: entities.InstancePreferencesGlobalRateLimits{DownloadSpeedLimit: 500, UploadSpeedLimit: 50}}
+
+	service.ReconcileWorker(context.Background(), worker)
+	workers.mu.Lock()
+	applications := len(workers.applied)
+	workers.mu.Unlock()
+	if applications != 0 || len(events.events) != 0 {
+		t.Fatalf("already active legacy schedule must be seeded silently, got %d applications / %d events", applications, len(events.events))
+	}
+
+	var storedWorker models.Worker
+	if err := service.db.DB.First(&storedWorker, "uuid = ?", worker.UUID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if storedWorker.LastAppliedBandwidthScheduleUUID == nil || *storedWorker.LastAppliedBandwidthScheduleUUID != scheduleID {
+		t.Fatalf("expected legacy schedule state to be persisted, got %#v", storedWorker.LastAppliedBandwidthScheduleUUID)
+	}
+}
+
 func TestApplyManualDefaultStoresBaselineWithoutSchedulerState(t *testing.T) {
 	service, worker, workers, _ := setupService(t)
 	if err := service.ApplyManualDefault(context.Background(), worker, Limits{DownloadLimit: 42, UploadLimit: 24}); err != nil {

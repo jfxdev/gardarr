@@ -147,8 +147,8 @@ export function TorrentActionBar({
   if (actions.length === 0) return null;
 
   return (
-    <div className="flex overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
-      <ButtonGroup className="flex-shrink-0">
+    <div className="flex overflow-x-auto scrollbar-hide sm:overflow-visible" style={{ WebkitOverflowScrolling: "touch" }}>
+      <ButtonGroup className="flex-shrink-0 sm:!w-full">
         {actions.map(({ icon: Icon, label, onClick, className, pulseKey }) => {
           const isPulsing = pulseKey !== undefined && pulsedAction === pulseKey;
           return (
@@ -158,7 +158,7 @@ export function TorrentActionBar({
                   variant="outline"
                   size="icon"
                   onClick={onClick}
-                  className={`h-10 w-10 flex-shrink-0 ${className ?? ""}`}
+                  className={`h-10 w-10 flex-shrink-0 sm:!w-auto sm:!flex-1 sm:!shrink ${className ?? ""}`}
                   aria-label={label}
                 >
                   <Icon

@@ -16,7 +16,9 @@ vi.mock("@/components/ui/tooltip", () => ({
 }));
 
 vi.mock("@/components/ui/button-group", () => ({
-  ButtonGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  ButtonGroup: ({ children, className }: { children: ReactNode; className?: string }) => (
+    <div role="group" className={className}>{children}</div>
+  ),
 }));
 
 describe("TorrentActionBar queue priority controls", () => {
@@ -28,6 +30,14 @@ describe("TorrentActionBar queue priority controls", () => {
   it("does not render queue priority buttons when onQueuePriority is omitted", () => {
     render(<TorrentActionBar torrentId="task-1" onPlay={() => {}} />);
     expect(screen.queryByLabelText("Move to top of queue")).not.toBeInTheDocument();
+  });
+
+  it("distributes the controls across the full desktop row", () => {
+    render(<TorrentActionBar torrentId="task-1" onPlay={() => {}} onPause={() => {}} />);
+
+    expect(screen.getByRole("group")).toHaveClass("sm:!w-full");
+    expect(screen.getByLabelText("torrents.actionButtons.play")).toHaveClass("sm:!flex-1");
+    expect(screen.getByLabelText("torrents.actionButtons.pause")).toHaveClass("sm:!flex-1");
   });
 
   it("calls onQueuePriority with the right action for each button", () => {

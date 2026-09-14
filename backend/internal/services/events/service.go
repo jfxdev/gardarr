@@ -197,6 +197,10 @@ type stateUpdate struct {
 	state     string
 	progress  float64
 	timestamp time.Time
+	// target is set only for metadata-only changes, whose in-memory snapshot
+	// must not be committed until SaveTaskStates confirms the write -
+	// otherwise a failed persist would never be retried on later polls.
+	target *entities.TaskState
 }
 
 // completionCheck represents a pending completion event that needs database verification
@@ -364,6 +368,23 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 				if t.Progress >= 1.0 && !wasCompleted && !isErrorState(t.State) {
 					completionChecksChan <- s.buildCompletionCheck(workerID, t, timestamp)
 				}
+			} else if lastState.Name != t.Name || lastState.Category != t.Category || lastState.Size != int64(t.Size) {
+				// Keep the durable snapshot complete even when qBittorrent changes
+				// metadata without changing state or progress. This information is
+				// later used by removal events after a restart. The in-memory
+				// fields are only committed once SaveTaskStates confirms the
+				// write (see below), so a failed persist stays dirty and is
+				// retried on the next poll instead of being silently dropped.
+				updatesChan <- stateUpdate{
+					hash:      t.Hash,
+					name:      t.Name,
+					category:  t.Category,
+					size:      int64(t.Size),
+					state:     t.State,
+					progress:  t.Progress,
+					timestamp: timestamp,
+					target:    lastState,
+				}
 			}
 		}(task)
 	}
@@ -376,6 +397,7 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 	// instead of one round trip per task (the dominant DB cost per poll cycle
 	// when many torrents change progress at once).
 	updates := make([]*entities.TaskState, 0, len(updatesChan))
+	pending := make([]stateUpdate, 0, len(updatesChan))
 	for u := range updatesChan {
 		updates = append(updates, &entities.TaskState{
 			WorkerID:  workerID,
@@ -387,6 +409,7 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 			Progress:  u.progress,
 			UpdatedAt: u.timestamp,
 		})
+		pending = append(pending, u)
 	}
 
 	if err := s.repo.SaveTaskStates(ctx, updates); err != nil {
@@ -395,6 +418,18 @@ func (s *Service) TrackTasks(ctx context.Context, tasks []*entities.Task, worker
 			"worker_id", workerID.String(),
 			"count", len(updates),
 		)
+	} else {
+		s.mu.Lock()
+		for _, u := range pending {
+			if u.target == nil {
+				continue
+			}
+			u.target.Name = u.name
+			u.target.Category = u.category
+			u.target.Size = u.size
+			u.target.UpdatedAt = u.timestamp
+		}
+		s.mu.Unlock()
 	}
 
 	// Process events
@@ -600,9 +635,11 @@ func (s *Service) GetEventByUUID(ctx context.Context, uuid uuid.UUID) (*entities
 	return s.repo.GetEventByUUID(ctx, uuid)
 }
 
-// StartCleanupJob starts a background job that enforces event retention and
-// prunes stale task states. Without it EVENT_RETENTION_DAYS is never applied
-// and the events/task_states tables grow unbounded.
+// StartCleanupJob starts a background job that enforces event retention.
+// Task states are durable snapshots and are deliberately not aged out: they
+// are removed only after a successful worker poll confirms that a torrent is
+// gone. Expiring them by time would make every torrent look newly added after
+// a long Gardarr or worker outage.
 func (s *Service) StartCleanupJob(ctx context.Context) {
 	go func() {
 		interval := env.Get("EVENT_CLEANUP_INTERVAL").Default("24h").ValueDuration()
@@ -628,7 +665,6 @@ func (s *Service) runCleanup(ctx context.Context) {
 	if err := s.PurgeOldEvents(ctx); err != nil {
 		slog.Error("failed to purge old events", "error", err)
 	}
-	s.CleanStaleStates(ctx)
 }
 
 // PurgeOldEvents deletes events older than retention period
@@ -639,30 +675,4 @@ func (s *Service) PurgeOldEvents(ctx context.Context) error {
 
 	cutoff := time.Now().UTC().AddDate(0, 0, -s.retentionDays)
 	return s.repo.DeleteOldEvents(ctx, cutoff)
-}
-
-// CleanStaleStates removes states for tasks not seen in the last 24 hours
-func (s *Service) CleanStaleStates(ctx context.Context) {
-	cutoff := time.Now().Add(-24 * time.Hour)
-
-	// Clean from database
-	if err := s.repo.DeleteOldTaskStates(ctx, cutoff); err != nil {
-		slog.Error("failed to delete old task states from database", "error", err)
-	}
-
-	// Clean from memory
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for workerID, workerTasks := range s.taskStates {
-		for hash, state := range workerTasks {
-			if state.UpdatedAt.Before(cutoff) {
-				delete(workerTasks, hash)
-			}
-		}
-		// Remove empty worker maps
-		if len(workerTasks) == 0 {
-			delete(s.taskStates, workerID)
-		}
-	}
 }

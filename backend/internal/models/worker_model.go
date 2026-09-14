@@ -18,10 +18,15 @@ type Worker struct {
 	Icon                         string    `gorm:"size:100"`
 	Color                        string    `gorm:"size:50"`
 	// Nil means Gardarr has never been asked to manage this worker's baseline.
-	DefaultDownloadSpeedLimit *int      `gorm:"column:default_download_speed_limit"`
-	DefaultUploadSpeedLimit   *int      `gorm:"column:default_upload_speed_limit"`
-	CreatedAt                 time.Time `gorm:"autoCreateTime"`
-	UpdatedAt                 time.Time `gorm:"autoUpdateTime"`
+	DefaultDownloadSpeedLimit *int `gorm:"column:default_download_speed_limit"`
+	DefaultUploadSpeedLimit   *int `gorm:"column:default_upload_speed_limit"`
+	// These nullable fields persist the active schedule last applied by Gardarr.
+	// They let the scheduler distinguish a restart from a real schedule change.
+	LastAppliedBandwidthScheduleUUID *uuid.UUID `gorm:"type:uuid;column:last_applied_bandwidth_schedule_uuid"`
+	LastAppliedDownloadSpeedLimit    *int       `gorm:"column:last_applied_download_speed_limit"`
+	LastAppliedUploadSpeedLimit      *int       `gorm:"column:last_applied_upload_speed_limit"`
+	CreatedAt                        time.Time  `gorm:"autoCreateTime"`
+	UpdatedAt                        time.Time  `gorm:"autoUpdateTime"`
 }
 
 // BandwidthSchedule stores a recurring local-time speed-limit window. DaysOfWeek
@@ -38,7 +43,7 @@ type BandwidthSchedule struct {
 	UploadLimit   int       `gorm:"not null"`
 	Priority      int       `gorm:"not null;default:0;index"`
 	Color         string    `gorm:"size:7;not null;default:'#64748b'"`
-	Enabled       bool      `gorm:"not null;default:true"`
+	Enabled       bool      `gorm:"not null"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 }

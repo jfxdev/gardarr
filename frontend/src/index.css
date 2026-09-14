@@ -1,9 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: "Geist Variable", sans-serif;
+  --font-mono: "Geist Mono Variable", monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -79,7 +83,9 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.623 0.214 259.815);
-  --container-content-background: oklch(0.967 0.001 286.375)
+  --container-content-background: oklch(0.967 0.001 286.375);
+  --scrollbar-thumb: oklch(0.62 0.01 285);
+  --scrollbar-thumb-hover: oklch(0.48 0.01 285);
 }
 
 .dark {
@@ -119,6 +125,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --container-content-background: oklch(0.269 0 0);
+  --scrollbar-thumb: oklch(0.43 0 0);
+  --scrollbar-thumb-hover: oklch(0.58 0 0);
 }
 
 /* Color Variants - Light Mode */
@@ -491,6 +499,7 @@ html[data-color-variant="custom"] {
   }
   html, body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
     height: 100%;
     max-height: 100vh;
     max-height: 100dvh;
@@ -541,7 +550,7 @@ html[data-color-variant="custom"] {
 /* Custom Scrollbar Styles */
 .scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .scrollbar::-webkit-scrollbar {
@@ -554,19 +563,19 @@ html[data-color-variant="custom"] {
 }
 
 .scrollbar::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.6);
+  background-color: var(--scrollbar-thumb);
   border-radius: 4px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 .scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.8);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -579,19 +588,19 @@ html[data-color-variant="custom"] {
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.5);
+  background-color: var(--scrollbar-thumb);
   border-radius: 3px;
   border: 1px solid transparent;
   background-clip: content-box;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.7);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 .scrollbar-thick {
   scrollbar-width: auto;
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .scrollbar-thick::-webkit-scrollbar {
@@ -604,14 +613,14 @@ html[data-color-variant="custom"] {
 }
 
 .scrollbar-thick::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.7);
+  background-color: var(--scrollbar-thumb);
   border-radius: 6px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
 
 .scrollbar-thick::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.9);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 .scrollbar-none {
@@ -623,31 +632,6 @@ html[data-color-variant="custom"] {
   display: none;
 }
 
-/* Dark theme scrollbar adjustments */
-.dark .scrollbar::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.4);
-}
-
-.dark .scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.6);
-}
-
-.dark .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.3);
-}
-
-.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.5);
-}
-
-.dark .scrollbar-thick::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border) / 0.5);
-}
-
-.dark .scrollbar-thick::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--border) / 0.7);
-}
-
 /* Mobile-specific scrollbar improvements */
 @media (max-width: 767px) {
   /* Garantir que o scroll nativo funcione bem no mobile */
@@ -655,7 +639,7 @@ html[data-color-variant="custom"] {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
-  
+
   /* Remover scrollbars customizados no mobile para evitar problemas de layout */
   .scrollbar,
   .scrollbar-thin,
@@ -663,19 +647,19 @@ html[data-color-variant="custom"] {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   .scrollbar::-webkit-scrollbar,
   .scrollbar-thin::-webkit-scrollbar,
   .scrollbar-thick::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Garantir que modais sejam responsivos no mobile */
-  [data-radix-dialog-content] {
+  [data-radix-dialog-content]:not([data-torrent-details-dialog]) {
     max-height: 90vh !important;
     margin: 1rem !important;
   }
-  
+
   /* Melhorar o scroll em containers com altura fixa */
   .h-screen,
   .min-h-screen {
@@ -684,7 +668,7 @@ html[data-color-variant="custom"] {
     max-height: 100vh;
     max-height: 100dvh;
   }
-  
+
   /* Garantir que body e root não criem scroll infinito no mobile */
   html, body {
     max-height: 100vh;
