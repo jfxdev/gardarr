@@ -1068,12 +1068,12 @@ func (s *Service) processProviderImage(
 }
 
 func (s *Service) fetchProviderImage(ctx context.Context, provider MetadataProvider, imageURL string) ([]byte, string, *url.URL, error) {
-	sanitizedImageURL, parsedURL, err := s.validateExternalImageURL(ctx, provider, imageURL)
+	_, parsedURL, err := s.validateExternalImageURL(ctx, provider, imageURL)
 	if err != nil {
 		return nil, "", nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedImageURL, nil)
+	req, err := newProviderImageRequest(ctx, provider, parsedURL)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("failed to create image request: %w", err)
 	}
@@ -1094,6 +1094,37 @@ func (s *Service) fetchProviderImage(ctx context.Context, provider MetadataProvi
 	}
 
 	return body, contentType, parsedURL, nil
+}
+
+// newProviderImageRequest creates the network request from a provider-owned
+// origin instead of the external image URL. Only the already-validated path is
+// copied onto the request, so request input can never select a network host.
+func newProviderImageRequest(ctx context.Context, provider MetadataProvider, validatedURL *url.URL) (*http.Request, error) {
+	if validatedURL == nil {
+		return nil, fmt.Errorf("validated image URL is required")
+	}
+
+	var trustedOrigin string
+	for _, allowedHost := range provider.AllowedImageHosts() {
+		if strings.EqualFold(validatedURL.Hostname(), allowedHost) {
+			trustedOrigin = (&url.URL{
+				Scheme: "https",
+				Host:   strings.ToLower(allowedHost),
+			}).String()
+			break
+		}
+	}
+	if trustedOrigin == "" {
+		return nil, fmt.Errorf("validated image URL has no trusted provider origin")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, trustedOrigin, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.URL.Path = validatedURL.Path
+	req.URL.RawPath = validatedURL.RawPath
+	return req, nil
 }
 
 func (s *Service) providerImageURL(provider MetadataProvider, selection *MetadataProviderSelection) (string, error) {
@@ -1304,13 +1335,13 @@ func (s *Service) validateExternalImageURL(ctx context.Context, provider Metadat
 		}
 	}
 
-	sanitizedURL := (&url.URL{
+	sanitizedURL := &url.URL{
 		Scheme: "https",
 		Host:   strings.ToLower(host),
 		Path:   cleanPath,
-	}).String()
+	}
 
-	return sanitizedURL, parsedURL, nil
+	return sanitizedURL.String(), sanitizedURL, nil
 }
 
 func isDisallowedRemoteIP(ip net.IP) bool {

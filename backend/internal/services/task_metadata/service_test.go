@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -625,6 +626,44 @@ func TestGetProviderImageRejectsInvalidRequests(t *testing.T) {
 	}
 	if _, _, err := svc.GetProviderImage(context.Background(), "tgdb", " "); !errors.Is(err, ErrProviderImageInvalid) {
 		t.Fatalf("empty image id error = %v, want ErrProviderImageInvalid", err)
+	}
+}
+
+func TestNewProviderImageRequestUsesTrustedOriginAndValidatedPath(t *testing.T) {
+	provider := mockMetadataProvider{
+		name:              "tgdb",
+		allowedImageHosts: []string{"cdn.thegamesdb.net"},
+	}
+	validatedURL := &url.URL{
+		Scheme: "https",
+		Host:   "cdn.thegamesdb.net",
+		Path:   "/images/large/boxart/front/123.jpg",
+	}
+
+	req, err := newProviderImageRequest(context.Background(), provider, validatedURL)
+	if err != nil {
+		t.Fatalf(unexpectedErrFmt, err)
+	}
+	if req.URL.String() != "https://cdn.thegamesdb.net/images/large/boxart/front/123.jpg" {
+		t.Fatalf("request URL = %q", req.URL.String())
+	}
+}
+
+func TestNewProviderImageRequestRejectsMissingOrUntrustedOrigin(t *testing.T) {
+	provider := mockMetadataProvider{
+		name:              "tgdb",
+		allowedImageHosts: []string{"cdn.thegamesdb.net"},
+	}
+
+	if _, err := newProviderImageRequest(context.Background(), provider, nil); err == nil {
+		t.Fatal("expected nil validated URL to fail")
+	}
+	if _, err := newProviderImageRequest(context.Background(), provider, &url.URL{
+		Scheme: "https",
+		Host:   "example.com",
+		Path:   "/image.jpg",
+	}); err == nil {
+		t.Fatal("expected untrusted provider origin to fail")
 	}
 }
 
