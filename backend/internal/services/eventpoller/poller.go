@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jfxdev/gardarr/internal/entities"
 	"github.com/jfxdev/gardarr/internal/services/events"
 	"github.com/jfxdev/gardarr/internal/services/workermanager"
@@ -12,12 +13,22 @@ import (
 	"github.com/jfxdev/gardarr/pkg/logger"
 )
 
+type workerService interface {
+	ListWorkersBasic() ([]*entities.Worker, error)
+	ListTasks(context.Context, []*entities.Worker) (*entities.TaskListResult, error)
+}
+
+type eventService interface {
+	TrackTasks(context.Context, []*entities.Task, uuid.UUID, time.Time) error
+	DetectRemovedTasks(context.Context, []*entities.Task, uuid.UUID, time.Time) error
+}
+
 // Service periodically polls active workers for task state changes and feeds the
 // events system. This replaces the event-tracking that was previously embedded
 // inside the statistics collection loop.
 type Service struct {
-	workers      *workermanager.Service
-	eventService *events.Service
+	workers      workerService
+	eventService eventService
 	interval     time.Duration
 }
 
@@ -74,6 +85,24 @@ func (s *Service) pollWorker(ctx context.Context, w *entities.Worker, now time.T
 		logger.Debug("event poller: failed to list tasks",
 			"worker_id", w.UUID.String(),
 			"error", err.Error(),
+		)
+		return
+	}
+	if result == nil {
+		logger.Debug("event poller: task listing returned no result",
+			"worker_id", w.UUID.String(),
+		)
+		return
+	}
+	if workerErr, failed := result.Errors[w.UUID.String()]; failed {
+		// ListTasks reserves its top-level error for failures of the aggregate
+		// operation. A worker-specific connection failure is returned here,
+		// alongside an empty task list. Treating that as a successful empty
+		// response would emit removals for every persisted torrent and make all
+		// of them look newly added when the worker recovers.
+		logger.Debug("event poller: failed to list tasks",
+			"worker_id", w.UUID.String(),
+			"error", workerErr,
 		)
 		return
 	}
