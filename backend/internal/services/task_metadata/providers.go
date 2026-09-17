@@ -8,6 +8,7 @@ import (
 var (
 	ErrProviderNotFound          = errors.New("provider not found")
 	ErrProviderSelectionNotFound = errors.New("provider selection not found")
+	ErrProviderImageInvalid      = errors.New("invalid provider image")
 )
 
 type MetadataProviderSearchResult struct {

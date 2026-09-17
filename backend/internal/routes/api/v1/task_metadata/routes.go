@@ -75,6 +75,7 @@ func (m *Module) Register() {
 	protected.POST("/release-parse", m.parseRelease)
 	protected.POST("/release-parse/file", m.parseReleaseFile)
 	protected.GET("/providers/:provider/status", m.providerStatus)
+	protected.GET("/providers/:provider/image", m.getProviderImage)
 	protected.GET("/:task_hash/providers/:provider/search", m.searchProvider)
 	protected.POST("/:task_hash/providers/:provider", m.applyProvider)
 }
@@ -447,6 +448,34 @@ func (m *Module) providerStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, status)
+}
+
+// getProviderImage proxies a validated provider image through Gardarr. This
+// keeps previews same-origin for pages protected by COEP/COOP headers.
+func (m *Module) getProviderImage(c *gin.Context) {
+	provider := c.Param("provider")
+	imageID := c.Query("image_id")
+	if provider == "" || strings.TrimSpace(imageID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider and image_id are required"})
+		return
+	}
+
+	body, contentType, err := m.service.GetProviderImage(c.Request.Context(), provider, imageID)
+	if err != nil {
+		switch {
+		case errors.Is(err, task_metadata_service.ErrProviderNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, task_metadata_service.ErrProviderImageInvalid):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			slog.Warn("failed to proxy provider image", "provider", provider, "error", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to load provider image"})
+		}
+		return
+	}
+
+	c.Header("Cache-Control", "private, max-age=3600")
+	c.Data(http.StatusOK, contentType, body)
 }
 
 // searchProvider searches an external metadata provider

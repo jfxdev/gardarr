@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -74,6 +75,40 @@ func setupTaskMetadataApplyRouter(t *testing.T, provider taskmetadatasvc.Metadat
 	router.POST("/api/v1/tasks/metadata/:task_hash/providers/:provider", module.applyProvider)
 
 	return router
+}
+
+func setupTaskMetadataImageRouter(t *testing.T, providers ...taskmetadatasvc.MetadataProvider) (*gin.Engine, *Module) {
+	t.Helper()
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	db := database.SetupTestDB(t, &models.TaskMetadata{})
+	service, err := taskmetadatasvc.NewService(
+		db,
+		"http://localhost:3200",
+		t.TempDir(),
+		taskmetadatasvc.NewMetadataProviderRegistry(providers...),
+	)
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	module := NewModule(router.Group("/api/v1"), db, service)
+	router.GET("/api/v1/tasks/metadata/providers/:provider/image", module.getProviderImage)
+	return router, module
+}
+
+func getTaskMetadataImage(t *testing.T, router *gin.Engine, provider, imageID string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	url := "/api/v1/tasks/metadata/providers/" + provider + "/image"
+	if imageID != "" {
+		url += "?image_id=" + imageID
+	}
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
 }
 
 func sendTaskMetadataJSONRequest(t *testing.T, router *gin.Engine, method, url string, body interface{}) *httptest.ResponseRecorder {
@@ -284,5 +319,69 @@ func TestApplyProviderRouteIgnoresLegacyImageURLField(t *testing.T) {
 	}
 	if response.Name != "Fallback Game" {
 		t.Fatalf("expected fallback metadata to be applied, got %#v", response)
+	}
+}
+
+func TestGetProviderImageRouteRequiresImageID(t *testing.T) {
+	router, _ := setupTaskMetadataImageRouter(t, routeMockProvider{})
+	w := getTaskMetadataImage(t, router, "tgdb", "")
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
+func TestGetProviderImageRouteReturnsNotFoundForUnknownProvider(t *testing.T) {
+	router, _ := setupTaskMetadataImageRouter(t)
+	w := getTaskMetadataImage(t, router, "unknown", "front.jpg")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d: %s", w.Code, http.StatusNotFound, w.Body.String())
+	}
+}
+
+func TestGetProviderImageRouteRejectsInvalidImageID(t *testing.T) {
+	router, _ := setupTaskMetadataImageRouter(t, routeMockProvider{})
+	w := getTaskMetadataImage(t, router, "tgdb", strings.Repeat("x", 1025))
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
+func TestGetProviderImageRouteReturnsBadGatewayForProviderFailure(t *testing.T) {
+	router, _ := setupTaskMetadataImageRouter(t, routeMockProvider{})
+	w := getTaskMetadataImage(t, router, "tgdb", "front.jpg%3Ftoken=unexpected")
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d: %s", w.Code, http.StatusBadGateway, w.Body.String())
+	}
+}
+
+func TestRegisterIncludesProviderImageRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	db := database.SetupTestDB(t, &models.TaskMetadata{})
+	service, err := taskmetadatasvc.NewService(
+		db,
+		"http://localhost:3200",
+		t.TempDir(),
+		taskmetadatasvc.NewMetadataProviderRegistry(routeMockProvider{}),
+	)
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+	module := NewModule(router.Group("/api/v1"), db, service)
+	module.Register()
+
+	found := false
+	for _, route := range router.Routes() {
+		if route.Method == http.MethodGet && route.Path == "/api/v1/tasks/metadata/providers/:provider/image" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("provider image route was not registered")
 	}
 }

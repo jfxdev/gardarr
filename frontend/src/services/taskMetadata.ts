@@ -40,6 +40,16 @@ interface ApplyProviderRequest {
 }
 
 class TaskMetadataService {
+  getProviderImagePreviewUrl(provider: string, imageId?: string): string | undefined {
+    const normalizedProvider = provider.trim();
+    const normalizedImageId = imageId?.trim();
+    if (!normalizedProvider || !normalizedImageId) {
+      return undefined;
+    }
+
+    return `/v1/tasks/metadata/providers/${encodeURIComponent(normalizedProvider)}/image?image_id=${encodeURIComponent(normalizedImageId)}`;
+  }
+
   async getProviderStatus(provider: string): Promise<ApiResponse<ProviderStatusResponse>> {
     return api.get<ProviderStatusResponse>(`/tasks/metadata/providers/${provider}/status`);
   }

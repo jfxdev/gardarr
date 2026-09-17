@@ -347,6 +347,9 @@ func TestNewServiceUsesDedicatedHTTPClientTimeout(t *testing.T) {
 	if svc.httpClient.Timeout != httpTimeout {
 		t.Fatalf("expected timeout %v, got %v", httpTimeout, svc.httpClient.Timeout)
 	}
+	if svc.httpClient.CheckRedirect == nil {
+		t.Fatal("expected provider image redirects to be disabled")
+	}
 }
 
 func TestDeleteImagePreservesMetadataWhenOtherFieldsRemain(t *testing.T) {
@@ -581,6 +584,47 @@ func TestValidateExternalImageURLRejections(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %v", tt.errContains, err)
 			}
 		})
+	}
+}
+
+func TestGetProviderImageReturnsValidatedImage(t *testing.T) {
+	svc, _ := setupTestService(t)
+	svc.providerRegistry = NewMetadataProviderRegistry(mockMetadataProvider{
+		name:              "tgdb",
+		allowedImageHosts: []string{"cdn.thegamesdb.net"},
+	})
+	trustTGDBImageHost(svc)
+	setHTTPRoundTripper(svc, func(req *http.Request) (*http.Response, error) {
+		if req.URL.String() != "https://cdn.thegamesdb.net/images/large/boxart/front/123.jpg" {
+			t.Fatalf("unexpected provider image URL: %s", req.URL.String())
+		}
+		return httpTestResponse(http.StatusOK, testPNGBytes(), "image/png"), nil
+	})
+
+	body, contentType, err := svc.GetProviderImage(context.Background(), "tgdb", "boxart/front/123.jpg")
+	if err != nil {
+		t.Fatalf(unexpectedErrFmt, err)
+	}
+	if contentType != "image/png" {
+		t.Fatalf("content type = %q, want image/png", contentType)
+	}
+	if !bytes.Equal(body, testPNGBytes()) {
+		t.Fatal("provider image body did not match the validated response")
+	}
+}
+
+func TestGetProviderImageRejectsInvalidRequests(t *testing.T) {
+	svc, _ := setupTestService(t)
+	svc.providerRegistry = NewMetadataProviderRegistry(mockMetadataProvider{
+		name:              "tgdb",
+		allowedImageHosts: []string{"cdn.thegamesdb.net"},
+	})
+
+	if _, _, err := svc.GetProviderImage(context.Background(), "unknown", "front.jpg"); !errors.Is(err, ErrProviderNotFound) {
+		t.Fatalf("unknown provider error = %v, want ErrProviderNotFound", err)
+	}
+	if _, _, err := svc.GetProviderImage(context.Background(), "tgdb", " "); !errors.Is(err, ErrProviderImageInvalid) {
+		t.Fatalf("empty image id error = %v, want ErrProviderImageInvalid", err)
 	}
 }
 
