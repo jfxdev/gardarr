@@ -1335,10 +1335,16 @@ func (s *Service) validateExternalImageURL(ctx context.Context, provider Metadat
 		}
 	}
 
+	decodedPath, err := url.PathUnescape(cleanPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid image URL: failed to decode path: %w", err)
+	}
+
 	sanitizedURL := &url.URL{
-		Scheme: "https",
-		Host:   strings.ToLower(host),
-		Path:   cleanPath,
+		Scheme:  "https",
+		Host:    strings.ToLower(host),
+		Path:    decodedPath,
+		RawPath: cleanPath,
 	}
 
 	return sanitizedURL.String(), sanitizedURL, nil

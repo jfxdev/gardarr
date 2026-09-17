@@ -649,6 +649,43 @@ func TestNewProviderImageRequestUsesTrustedOriginAndValidatedPath(t *testing.T) 
 	}
 }
 
+func TestValidateExternalImageURLPreservesEncodedPath(t *testing.T) {
+	svc, _ := setupTestService(t)
+	svc.lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("203.0.113.10")}}, nil
+	}
+	provider := mockMetadataProvider{
+		name:              "tgdb",
+		allowedImageHosts: []string{"cdn.thegamesdb.net"},
+	}
+
+	sanitized, validatedURL, err := svc.validateExternalImageURL(
+		context.Background(),
+		provider,
+		"https://cdn.thegamesdb.net/images/Pragmata%20Deluxe.jpg",
+	)
+	if err != nil {
+		t.Fatalf(unexpectedErrFmt, err)
+	}
+	if sanitized != "https://cdn.thegamesdb.net/images/Pragmata%20Deluxe.jpg" {
+		t.Fatalf("sanitized URL = %q", sanitized)
+	}
+	if validatedURL.Path != "/images/Pragmata Deluxe.jpg" {
+		t.Fatalf("validated path = %q", validatedURL.Path)
+	}
+	if validatedURL.RawPath != "/images/Pragmata%20Deluxe.jpg" {
+		t.Fatalf("validated raw path = %q", validatedURL.RawPath)
+	}
+
+	req, err := newProviderImageRequest(context.Background(), provider, validatedURL)
+	if err != nil {
+		t.Fatalf(unexpectedErrFmt, err)
+	}
+	if req.URL.String() != sanitized {
+		t.Fatalf("request URL = %q, want %q", req.URL.String(), sanitized)
+	}
+}
+
 func TestNewProviderImageRequestRejectsMissingOrUntrustedOrigin(t *testing.T) {
 	provider := mockMetadataProvider{
 		name:              "tgdb",
