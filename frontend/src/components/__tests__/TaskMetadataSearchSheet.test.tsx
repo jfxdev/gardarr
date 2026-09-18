@@ -71,6 +71,8 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/services/taskMetadata", () => ({
   taskMetadataService: {
+    getProviderImagePreviewUrl: (provider: string, imageId?: string) =>
+      imageId ? `/v1/tasks/metadata/providers/${provider}/image?image_id=${encodeURIComponent(imageId)}` : undefined,
     getProviderStatus: vi.fn(),
     searchProvider: vi.fn(),
     applyProvider: vi.fn(),
@@ -144,6 +146,16 @@ describe("TaskMetadataSearchSheet", () => {
     expect(toast.success).toHaveBeenCalledWith("tgdb.success.applied");
     expect(onApplied).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("loads provider previews through the same-origin Gardarr endpoint", async () => {
+    renderSearchSheet();
+
+    const preview = await screen.findByRole("img", { name: "Halo" });
+    expect(preview).toHaveAttribute(
+      "src",
+      "/v1/tasks/metadata/providers/tgdb/image?image_id=front.jpg"
+    );
   });
 
   it("passes a raw torrent release name to the backend parser", async () => {

@@ -85,8 +85,13 @@ func NewService(db *database.Database, baseURL, uploadDir string, providerRegist
 		uploadDir:        uploadDir,
 		baseURL:          baseURL,
 		providerRegistry: providerRegistry,
-		httpClient:       &http.Client{Timeout: httpTimeout},
-		lookupIPAddr:     net.DefaultResolver.LookupIPAddr,
+		httpClient: &http.Client{
+			Timeout: httpTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+		lookupIPAddr: net.DefaultResolver.LookupIPAddr,
 	}, nil
 }
 
@@ -874,6 +879,33 @@ func (s *Service) SearchProvider(ctx context.Context, providerName string, query
 	return provider.Search(ctx, query)
 }
 
+// GetProviderImage retrieves a provider-owned image through Gardarr so browser
+// clients do not have to embed third-party CDN resources. Provider host and
+// response validation are shared with the image persistence flow below.
+func (s *Service) GetProviderImage(ctx context.Context, providerName string, imageID string) ([]byte, string, error) {
+	provider, ok := s.providerRegistry.Get(providerName)
+	if !ok {
+		return nil, "", ErrProviderNotFound
+	}
+
+	imageID = strings.TrimSpace(imageID)
+	if imageID == "" || len(imageID) > 1024 {
+		return nil, "", ErrProviderImageInvalid
+	}
+
+	imageURL, err := provider.BuildImageURL(imageID)
+	if err != nil || strings.TrimSpace(imageURL) == "" {
+		return nil, "", fmt.Errorf("%w: invalid image id", ErrProviderImageInvalid)
+	}
+
+	body, contentType, _, err := s.fetchProviderImage(ctx, provider, imageURL)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return body, contentType, nil
+}
+
 // SearchProviderAuto turns a release name into the most useful provider query
 // before delegating to the existing provider abstraction.
 func (s *Service) SearchProviderAuto(ctx context.Context, providerName string, rawName string) ([]MetadataProviderSearchResult, error) {
@@ -1022,31 +1054,9 @@ func (s *Service) processProviderImage(
 	}
 
 	slog.Info("processing provider image", "provider", provider.Name(), "task_hash", taskHash, "selection_id", selectionID, "image_url", imageURL)
-	sanitizedImageURL, parsedURL, err := s.validateExternalImageURL(ctx, provider, imageURL)
+	body, contentType, parsedURL, err := s.fetchProviderImage(ctx, provider, imageURL)
 	if err != nil {
-		return "", "provider_image_skipped", s.logSkippedProviderImage("invalid image URL", provider, taskHash, err), nil
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sanitizedImageURL, nil)
-	if err != nil {
-		return "", "provider_image_skipped", s.logSkippedProviderImage("request creation failure", provider, taskHash, err), nil
-	}
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		slog.Warn("skipping provider image due to download failure", "provider", provider.Name(), "task_hash", taskHash, "error", err)
-		return "", "provider_image_skipped", fmt.Sprintf("failed to download image: %v", err), nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Warn("skipping provider image due to unexpected status code", "provider", provider.Name(), "task_hash", taskHash, "status_code", resp.StatusCode)
-		return "", "provider_image_skipped", fmt.Sprintf("failed to download image, status code: %d", resp.StatusCode), nil
-	}
-
-	body, contentType, err := s.readAndValidateRemoteImage(resp)
-	if err != nil {
-		return "", "provider_image_skipped", s.logSkippedProviderImage("invalid image response", provider, taskHash, err), nil
+		return "", "provider_image_skipped", s.logSkippedProviderImage("download failure", provider, taskHash, err), nil
 	}
 
 	filePath, err := s.saveProviderImage(taskHash, provider.Name(), parsedURL.Path, contentType, body)
@@ -1055,6 +1065,66 @@ func (s *Service) processProviderImage(
 	}
 
 	return filePath, "", "", nil
+}
+
+func (s *Service) fetchProviderImage(ctx context.Context, provider MetadataProvider, imageURL string) ([]byte, string, *url.URL, error) {
+	_, parsedURL, err := s.validateExternalImageURL(ctx, provider, imageURL)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	req, err := newProviderImageRequest(ctx, provider, parsedURL)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("failed to create image request: %w", err)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", nil, fmt.Errorf("failed to download image, status code: %d", resp.StatusCode)
+	}
+
+	body, contentType, err := s.readAndValidateRemoteImage(resp)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	return body, contentType, parsedURL, nil
+}
+
+// newProviderImageRequest creates the network request from a provider-owned
+// origin instead of the external image URL. Only the already-validated path is
+// copied onto the request, so request input can never select a network host.
+func newProviderImageRequest(ctx context.Context, provider MetadataProvider, validatedURL *url.URL) (*http.Request, error) {
+	if validatedURL == nil {
+		return nil, fmt.Errorf("validated image URL is required")
+	}
+
+	var trustedOrigin string
+	for _, allowedHost := range provider.AllowedImageHosts() {
+		if strings.EqualFold(validatedURL.Hostname(), allowedHost) {
+			trustedOrigin = (&url.URL{
+				Scheme: "https",
+				Host:   strings.ToLower(allowedHost),
+			}).String()
+			break
+		}
+	}
+	if trustedOrigin == "" {
+		return nil, fmt.Errorf("validated image URL has no trusted provider origin")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, trustedOrigin, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.URL.Path = validatedURL.Path
+	req.URL.RawPath = validatedURL.RawPath
+	return req, nil
 }
 
 func (s *Service) providerImageURL(provider MetadataProvider, selection *MetadataProviderSelection) (string, error) {
@@ -1265,13 +1335,19 @@ func (s *Service) validateExternalImageURL(ctx context.Context, provider Metadat
 		}
 	}
 
-	sanitizedURL := (&url.URL{
-		Scheme: "https",
-		Host:   strings.ToLower(host),
-		Path:   cleanPath,
-	}).String()
+	decodedPath, err := url.PathUnescape(cleanPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid image URL: failed to decode path: %w", err)
+	}
 
-	return sanitizedURL, parsedURL, nil
+	sanitizedURL := &url.URL{
+		Scheme:  "https",
+		Host:    strings.ToLower(host),
+		Path:    decodedPath,
+		RawPath: cleanPath,
+	}
+
+	return sanitizedURL.String(), sanitizedURL, nil
 }
 
 func isDisallowedRemoteIP(ip net.IP) bool {

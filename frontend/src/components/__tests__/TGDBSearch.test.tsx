@@ -90,6 +90,10 @@ describe("TGDBSearch", () => {
     );
 
     const gameTitle = await screen.findByText("Test Game");
+    expect(screen.getByRole("img", { name: "Test Game" })).toHaveAttribute(
+      "src",
+      "/v1/tasks/metadata/providers/tgdb/image?image_id=front.jpg"
+    );
     const gameButton = gameTitle.closest("button");
     if (!gameButton) {
       throw new Error("expected TGDB result button");

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { taskMetadataService } from "@/services/taskMetadata";
 import { useTranslation } from "react-i18next";
 import type { TaskMetadata } from "@/types/torrent";
 
@@ -116,33 +117,37 @@ export function ProviderSearch({ provider, taskHash, initialQuery, onSelect, onC
       </div>
 
       <div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto p-2">
-        {results.map((result) => (
-          <button
-            type="button"
-            key={result.id}
-            className="border rounded-lg overflow-hidden flex flex-col hover:border-primary cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border text-left"
-            onClick={() => handleApply(result)}
-            disabled={isApplying}
-            aria-busy={applyingResultId === result.id}
-          >
-            {result.image_url ? (
-              <img src={result.image_url} alt={result.title} className="w-full h-48 object-cover" />
-            ) : (
-              <div className="w-full h-48 bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                {t(`${provider}.search.noImage`)}
+        {results.map((result) => {
+          const previewUrl = taskMetadataService.getProviderImagePreviewUrl(provider, result.image_id);
+
+          return (
+            <button
+              type="button"
+              key={result.id}
+              className="border rounded-lg overflow-hidden flex flex-col hover:border-primary cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border text-left"
+              onClick={() => handleApply(result)}
+              disabled={isApplying}
+              aria-busy={applyingResultId === result.id}
+            >
+              {previewUrl ? (
+                <img src={previewUrl} alt={result.title} className="w-full h-48 object-cover" />
+              ) : (
+                <div className="w-full h-48 bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                  {t(`${provider}.search.noImage`)}
+                </div>
+              )}
+              <div className="p-2 bg-card">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-medium text-sm truncate" title={result.title}>{result.title}</h4>
+                  {applyingResultId === result.id && (
+                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{result.release_date || t(`${provider}.search.unknownDate`)}</p>
               </div>
-            )}
-            <div className="p-2 bg-card">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="font-medium text-sm truncate" title={result.title}>{result.title}</h4>
-                {applyingResultId === result.id && (
-                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">{result.release_date || t(`${provider}.search.unknownDate`)}</p>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
         {results.length === 0 && !isSearching && (
           <div className="col-span-2 text-center py-8 text-muted-foreground">
             {t(`${provider}.search.noResults`)}

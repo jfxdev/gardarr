@@ -299,6 +299,7 @@ export function TaskMetadataSearchSheet({
                 <div className="grid gap-3">
                   {results.map((result) => {
                     const isSelected = selectedResultId === result.id;
+                    const previewUrl = taskMetadataService.getProviderImagePreviewUrl(provider, result.image_id);
 
                     return (
                       <button
@@ -311,9 +312,9 @@ export function TaskMetadataSearchSheet({
                         }`}
                       >
                         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md border bg-muted/40">
-                          {result.image_url ? (
+                          {previewUrl ? (
                             <img
-                              src={result.image_url}
+                              src={previewUrl}
                               alt={result.title}
                               className="h-full w-full object-cover"
                             />
