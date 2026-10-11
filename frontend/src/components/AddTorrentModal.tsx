@@ -174,8 +174,9 @@ export function AddTorrentModal() {
   }, [isAddModalOpen, activeWorkers, selectedWorkerId]);
 
   useEffect(() => {
-    if (mode === "magnet" && magnetUri.trim() && magnetUri.startsWith("magnet:")) {
-      setParsedMagnetLink(convertMagnetUriToTaskMagnetLink(magnetUri.trim()));
+    const trimmedMagnetUri = magnetUri.trim();
+    if (mode === "magnet" && trimmedMagnetUri.startsWith("magnet:")) {
+      setParsedMagnetLink(convertMagnetUriToTaskMagnetLink(trimmedMagnetUri));
       return;
     }
 
@@ -331,7 +332,7 @@ export function AddTorrentModal() {
       }
     } else if (!magnetUri.trim()) {
       nextErrors.magnetUri = t("torrents.addModal.errors.magnetRequired");
-    } else if (!magnetUri.startsWith("magnet:")) {
+    } else if (!magnetUri.trim().startsWith("magnet:")) {
       nextErrors.magnetUri = t("torrents.addModal.errors.magnetInvalidPrefix");
     } else if (!parsedMagnetLink?.hash) {
       nextErrors.magnetUri = t("torrents.addModal.errors.magnetInvalidPrefix");
