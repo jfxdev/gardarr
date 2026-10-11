@@ -174,8 +174,9 @@ export function AddTorrentModal() {
   }, [isAddModalOpen, activeWorkers, selectedWorkerId]);
 
   useEffect(() => {
-    if (mode === "magnet" && magnetUri.trim() && magnetUri.startsWith("magnet:")) {
-      setParsedMagnetLink(convertMagnetUriToTaskMagnetLink(magnetUri.trim()));
+    const trimmedMagnetUri = magnetUri.trim();
+    if (mode === "magnet" && trimmedMagnetUri.startsWith("magnet:")) {
+      setParsedMagnetLink(convertMagnetUriToTaskMagnetLink(trimmedMagnetUri));
       return;
     }
 
