@@ -440,6 +440,30 @@
     }
   },
   "workers": {
+    "overview": {
+      "title": "Armazenamento e atividade",
+      "stored": "Total armazenado",
+      "storedShort": "Armazenado",
+      "onlineShort": "Online",
+      "storedDescription": "Conteúdo concluído informado pelo qBittorrent",
+      "online": "Workers online",
+      "connections": "Conexões disponíveis",
+      "torrents": "Torrents",
+      "active": "{{value}} ativos",
+      "transfer": "Transferência atual",
+      "currentSpeeds": "Download / upload atuais",
+      "download": "Download",
+      "upload": "Upload",
+      "freeByNode": "Espaço livre por node",
+      "storedByNode": "Armazenado por node",
+      "partial": "Parcial — dados de {{count}}/{{total}} workers",
+      "unavailable": "Indisponível",
+      "loading": "Carregando…",
+      "updating": "Atualizando…",
+      "filtered": "Exibindo {{count}} workers filtrados",
+      "empty": "Nenhum worker para comparar",
+      "collectedAt": "Coletado: {{time}}"
+    },
     "title": "Workers",
     "subtitle": "Gerencie seus clientes de torrent e conexões",
     "refresh": "Atualizar",
@@ -788,6 +812,7 @@
       "worker": {
         "label": "Worker",
         "noneAvailable": "Nenhum worker ativo disponível",
+        "preferredUnavailable": "O worker preferido está indisponível. Escolha outro worker para adicionar este torrent.",
         "select": "Selecione um worker",
         "freeSpace": "Espaço livre em disco:"
       },
@@ -851,6 +876,7 @@
         "workerRequired": "Selecione um worker",
         "magnetRequired": "Magnet URI é obrigatório",
         "magnetInvalidPrefix": "Magnet URI deve começar com 'magnet:'",
+        "magnetInvalidHash": "Magnet URI deve conter um hash de torrent válido (40 caracteres hexadecimais ou 32 caracteres Base32)",
         "fileRequired": "Selecione um arquivo .torrent",
         "fileInvalidExtension": "O arquivo deve ter extensão .torrent",
         "categoryRequired": "Selecione uma categoria",
@@ -1050,7 +1076,16 @@
     "deleteConfirmTitle": "Excluir Categoria",
     "deleteConfirmMessage": "Tem certeza que deseja excluir a categoria \"{{name}}\"? Esta ação não pode ser desfeita.",
     "immutableName": "O nome da categoria não pode ser alterado",
+    "preferredWorker": {
+      "none": "Sem preferência",
+      "help": "Seleciona este worker ao escolher a categoria, a menos que você já tenha escolhido outro worker.",
+      "loading": "Carregando workers…",
+      "loadFailed": "Não foi possível carregar os workers. Sua preferência foi mantida.",
+      "retry": "Tentar novamente",
+      "unavailable": "Worker configurado indisponível"
+    },
     "fields": {
+      "preferredWorker": "Worker preferido",
       "name": "Nome",
       "defaultTags": "Tags Padrão",
       "defaultDirectories": "Diretórios Padrão",

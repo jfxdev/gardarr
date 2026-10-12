@@ -901,6 +901,19 @@ func Register(m *migration.Migrator) {
 			Up:          backfillLegacyCategoryDirectories,
 			Down:        func(_ *gorm.DB) error { return nil },
 		},
+		{
+			Version:     "048_add_category_preferred_worker",
+			Description: "Adiciona worker preferido às categorias",
+			Up: func(db *gorm.DB) error {
+				if !db.Migrator().HasColumn(&models.Category{}, "PreferredWorkerID") {
+					if err := db.Migrator().AddColumn(&models.Category{}, "PreferredWorkerID"); err != nil {
+						return err
+					}
+				}
+				return db.Exec("CREATE INDEX IF NOT EXISTS idx_categories_preferred_worker_id ON categories (preferred_worker_id)").Error
+			},
+			Down: func(db *gorm.DB) error { return db.Migrator().DropColumn(&models.Category{}, "PreferredWorkerID") },
+		},
 	})
 }
 

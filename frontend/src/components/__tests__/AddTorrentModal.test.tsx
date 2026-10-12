@@ -13,9 +13,11 @@ import { AddTorrentModal } from "@/components/AddTorrentModal";
 import { AddTorrentContext, type AddTorrentContextValue } from "@/contexts/add-torrent-context";
 import type { Task } from "@/types/torrent";
 import type { Worker } from "@/types/worker";
+import { convertMagnetUriToTaskMagnetLink } from "@/services/torrents";
 
 const navigateMock = vi.fn();
 let currentPathname = "/workers";
+let manualCategoryPreferredWorkerId = "";
 
 vi.mock("react-router", () => ({
   useNavigate: () => navigateMock,
@@ -114,7 +116,7 @@ vi.mock("@/components/SelectCategory", () => ({
     onCategoryChange,
     error,
   }: {
-    onCategoryChange: (categoryId: string, category?: { id: string; name: string; default_tags?: string[]; default_directories?: string[] }) => void;
+    onCategoryChange: (categoryId: string, category?: { id: string; name: string; default_tags?: string[]; default_directories?: string[]; preferred_worker_id?: string }) => void;
     error?: string;
   }) => (
     <div>
@@ -124,6 +126,7 @@ vi.mock("@/components/SelectCategory", () => ({
           onCategoryChange("cat-1", {
             id: "cat-1",
             name: "Games",
+            preferred_worker_id: manualCategoryPreferredWorkerId,
             default_tags: ["auto-tag"],
             default_directories: ["/downloads/games", "/downloads/games-4k"],
           })
@@ -146,21 +149,24 @@ vi.mock("@/components/SelectTags", () => ({
 }));
 
 const createTaskMock = vi.fn();
+const createTaskFromFileMock = vi.fn();
+const listWorkersMock = vi.fn();
 const parseReleaseMock = vi.fn();
 const parseReleaseFileMock = vi.fn();
 const updateNameMock = vi.fn();
 const listCategoriesMock = vi.fn();
 
 vi.mock("@/services/torrents", () => ({
-  convertMagnetUriToTaskMagnetLink: (magnetUri: string) => ({
+  convertMagnetUriToTaskMagnetLink: vi.fn((magnetUri: string) => ({
     hash: "HASH-1",
     display_name: magnetUri,
     trackers: [],
     exact_length: "",
     exact_source: "",
-  }),
+  })),
   torrentService: {
     createTask: (...args: unknown[]) => createTaskMock(...args),
+    createTaskFromFile: (...args: unknown[]) => createTaskFromFileMock(...args),
   },
 }));
 
@@ -191,7 +197,7 @@ const baseWorker: Worker = {
 
 vi.mock("@/services/workers", () => ({
   workerService: {
-    listWorkers: () => Promise.resolve({ data: [baseWorker] }),
+    listWorkers: (...args: unknown[]) => listWorkersMock(...args),
   },
 }));
 
@@ -276,11 +282,39 @@ describe("AddTorrentModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentPathname = "/workers";
+    manualCategoryPreferredWorkerId = "";
+    listWorkersMock.mockResolvedValue({ data: [baseWorker] });
+    createTaskFromFileMock.mockResolvedValue({ data: baseTask });
     createTaskMock.mockResolvedValue({ data: baseTask });
     parseReleaseMock.mockResolvedValue({});
     parseReleaseFileMock.mockResolvedValue({});
     updateNameMock.mockResolvedValue({});
     listCategoriesMock.mockResolvedValue({ data: [] });
+  });
+
+  it("submits a Base32 magnet with the canonical pending torrent hash", async () => {
+    const actual = await vi.importActual<typeof import("@/services/torrents")>("@/services/torrents");
+    vi.mocked(convertMagnetUriToTaskMagnetLink).mockImplementationOnce(actual.convertMagnetUriToTaskMagnetLink);
+    const context = buildContext();
+    renderModal(context);
+    await waitFor(() => expect(screen.getAllByText("Worker 1")[0]).toBeInTheDocument());
+    const uri = "magnet:?xt=urn:btih:lignvs6vk4ppzxk6e6p4wdurhnwdnszw&dn=Gardarr Test Fixture.2026.1080p.WEB-DL.x264&tr=udp://tracker.example.invalid:1337/announce";
+    fireEvent.change(screen.getByPlaceholderText("torrents.addModal.magnetUri.placeholder"), { target: { value: uri } });
+    fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
+    await waitFor(() => expect(createTaskMock).toHaveBeenCalledWith("worker-1", expect.objectContaining({ magnet_uri: uri })));
+    expect(context.addPendingTorrent).toHaveBeenCalledWith(expect.objectContaining({ hash: "5a0cdacbd5571efcdd5e279fcb0e913b6c36cb36" }));
+    expect(screen.queryByText("torrents.addModal.errors.magnetInvalidPrefix")).not.toBeInTheDocument();
+  });
+
+  it("shows a hash error for a magnet with an invalid hash", async () => {
+    const actual = await vi.importActual<typeof import("@/services/torrents")>("@/services/torrents");
+    vi.mocked(convertMagnetUriToTaskMagnetLink).mockImplementationOnce(actual.convertMagnetUriToTaskMagnetLink);
+    renderModal(buildContext());
+    await waitFor(() => expect(screen.getAllByText("Worker 1")[0]).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText("torrents.addModal.magnetUri.placeholder"), { target: { value: "magnet:?xt=urn:btih:invalid" } });
+    fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
+    expect(screen.getByText("torrents.addModal.errors.magnetInvalidHash")).toBeInTheDocument();
+    expect(createTaskMock).not.toHaveBeenCalled();
   });
 
   it("renders magnet and upload tabs without step navigation", async () => {
@@ -602,5 +636,169 @@ describe("AddTorrentModal", () => {
     expect(createTaskMock).not.toHaveBeenCalled();
     expect(context.addPendingTorrent).not.toHaveBeenCalled();
     expect(screen.getByText("torrents.addModal.errors.magnetRequired")).toBeInTheDocument();
+  });
+});
+
+const preferredWorker: Worker = { ...baseWorker, uuid: "worker-2", name: "Worker 2" };
+const moviePreference = { id: "movies", name: "Movies", release_type: "movie", default_tags: [], default_directories: [], preferred_worker_id: "worker-2" };
+const movieSuggestion = { release: { type: "movie", confidence: "high" }, display_name: "Movie", tags: [] };
+
+function changeMagnet(name = "movie") {
+  fireEvent.change(screen.getByLabelText(/torrents\.addModal\.magnetUri\.label/), { target: { value: `magnet:?xt=urn:btih:test&dn=${name}` } });
+}
+
+function chooseWorker(name: string) {
+  fireEvent.click(screen.getByLabelText(/torrents\.addModal\.worker\.label/));
+  const buttons = screen.getAllByRole("button", { name, exact: true });
+  fireEvent.click(buttons[buttons.length - 1]);
+}
+
+function expectSelectedWorker(name: string) {
+  expect(screen.getByLabelText(/torrents\.addModal\.worker\.label/)).toHaveTextContent(name);
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
+describe("AddTorrentModal worker affinity", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    manualCategoryPreferredWorkerId = "";
+    listWorkersMock.mockResolvedValue({ data: [baseWorker, preferredWorker] });
+    listCategoriesMock.mockResolvedValue({ data: [moviePreference] });
+    parseReleaseMock.mockResolvedValue({ data: movieSuggestion });
+    parseReleaseFileMock.mockResolvedValue({ data: movieSuggestion });
+    createTaskMock.mockResolvedValue({ data: baseTask });
+    createTaskFromFileMock.mockResolvedValue({ data: baseTask });
+    updateNameMock.mockResolvedValue({});
+  });
+
+  it.each(["magnet", "file"] as const)("applies inferred preference and submits to that worker for %s", async (mode) => {
+    renderModal(buildContext({ addModalMode: mode }));
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    const file = new File(["torrent"], "movie.torrent");
+    if (mode === "magnet") changeMagnet();
+    else fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [file] } });
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+    fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
+    const create = mode === "magnet" ? createTaskMock : createTaskFromFileMock;
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0][0]).toBe("worker-2");
+  });
+
+  it("applies preference for a manually selected category", async () => {
+    manualCategoryPreferredWorkerId = "worker-2";
+    renderModal(buildContext());
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    fireEvent.click(screen.getByRole("button", { name: "Select category" }));
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+  });
+
+  it.each(["missing", "INACTIVE", "ERRORED"])("requires manual selection when preferred worker is %s", async (status) => {
+    listWorkersMock.mockResolvedValue({ data: status === "missing" ? [baseWorker] : [baseWorker, { ...preferredWorker, status }] });
+    renderModal(buildContext());
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    changeMagnet();
+    await screen.findByText("torrents.addModal.worker.preferredUnavailable");
+    await waitFor(() => expectSelectedWorker("torrents.addModal.worker.select"));
+    fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
+    expect(createTaskMock).not.toHaveBeenCalled();
+    expect(screen.getByText("torrents.addModal.errors.workerRequired")).toBeInTheDocument();
+    chooseWorker("Worker 1");
+    expect(screen.queryByText("torrents.addModal.worker.preferredUnavailable")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
+    await waitFor(() => expect(createTaskMock).toHaveBeenCalledWith("worker-1", expect.anything()));
+  });
+
+  it("keeps the initial worker when a category has no preference", async () => {
+    listCategoriesMock.mockResolvedValue({ data: [{ ...moviePreference, preferred_worker_id: "" }] });
+    renderModal(buildContext());
+    changeMagnet();
+    await screen.findByDisplayValue("Movie");
+    expectSelectedWorker("Worker 1");
+  });
+
+  it("preserves manual worker choice across inference, category and mode changes", async () => {
+    manualCategoryPreferredWorkerId = "worker-2";
+    renderModal(buildContext());
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    chooseWorker("Worker 1");
+    changeMagnet();
+    await screen.findByDisplayValue("Movie");
+    expectSelectedWorker("Worker 1");
+    fireEvent.click(screen.getByRole("button", { name: "Select category" }));
+    expectSelectedWorker("Worker 1");
+    await userEvent.click(screen.getByRole("tab", { name: "torrents.addModal.source.upload" }));
+    const file = new File(["torrent"], "movie.torrent");
+    fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [file] } });
+    await screen.findByDisplayValue("Movie");
+    expectSelectedWorker("Worker 1");
+    expect(parseReleaseMock).toHaveBeenCalledTimes(1);
+    expect(parseReleaseFileMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets manual choice after closing and reopening", async () => {
+    const context = buildContext();
+    const view = renderModal(context);
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    chooseWorker("Worker 1");
+    view.rerender(<AddTorrentContext.Provider value={{ ...context, isAddModalOpen: false }}><AddTorrentModal /></AddTorrentContext.Provider>);
+    view.rerender(<AddTorrentContext.Provider value={context}><AddTorrentModal /></AddTorrentContext.Provider>);
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+    changeMagnet();
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+  });
+
+  it.each(["magnet", "file"] as const)("restores default after clearing automatic affinity in %s mode", async (mode) => {
+    renderModal(buildContext({ addModalMode: mode }));
+    if (mode === "magnet") changeMagnet();
+    else fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [new File(["torrent"], "movie.torrent")] } });
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+    if (mode === "magnet") {
+      parseReleaseMock.mockResolvedValue({ data: { ...movieSuggestion, release: { type: "unknown", confidence: "low" } } });
+      changeMagnet("unknown");
+    } else await userEvent.click(screen.getByRole("button", { name: "torrents.addModal.file.remove" }));
+    await waitFor(() => expectSelectedWorker("Worker 1"));
+  });
+
+  it.each([["workers", "magnet"], ["categories", "magnet"], ["workers", "file"], ["categories", "file"]] as const)("applies affinity when %s finish loading after parsing in %s mode", async (late, mode) => {
+    const workers = deferred<{ data: Worker[] }>();
+    const categories = deferred<{ data: typeof moviePreference[] }>();
+    if (late === "workers") listWorkersMock.mockReturnValue(workers.promise);
+    else listCategoriesMock.mockReturnValue(categories.promise);
+    renderModal(buildContext({ addModalMode: mode }));
+    if (mode === "magnet") changeMagnet();
+    else fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [new File(["torrent"], "movie.torrent")] } });
+    await screen.findByDisplayValue("Movie");
+    if (late === "workers") workers.resolve({ data: [baseWorker, preferredWorker] });
+    else categories.resolve({ data: [moviePreference] });
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+    expect(mode === "magnet" ? parseReleaseMock : parseReleaseFileMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a manual choice made while inference is pending", async () => {
+    const parsed = deferred<{ data: typeof movieSuggestion }>();
+    parseReleaseMock.mockReturnValue(parsed.promise);
+    renderModal(buildContext());
+    changeMagnet();
+    await waitFor(() => expect(parseReleaseMock).toHaveBeenCalledTimes(1));
+    chooseWorker("Worker 1");
+    parsed.resolve({ data: movieSuggestion });
+    await screen.findByDisplayValue("Movie");
+    expectSelectedWorker("Worker 1");
+    expect(parseReleaseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates preference when a different torrent infers a different category", async () => {
+    listCategoriesMock.mockResolvedValue({ data: [moviePreference, { ...moviePreference, id: "games", release_type: "game", preferred_worker_id: "worker-1" }] });
+    renderModal(buildContext());
+    changeMagnet();
+    await waitFor(() => expectSelectedWorker("Worker 2"));
+    parseReleaseMock.mockResolvedValue({ data: { ...movieSuggestion, release: { type: "game", confidence: "high" } } });
+    changeMagnet("game");
+    await waitFor(() => expectSelectedWorker("Worker 1"));
   });
 });

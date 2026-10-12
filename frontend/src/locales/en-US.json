@@ -440,6 +440,30 @@
     }
   },
   "workers": {
+    "overview": {
+      "title": "Storage and activity",
+      "stored": "Total stored",
+      "storedShort": "Stored",
+      "onlineShort": "Online",
+      "storedDescription": "Completed content reported by qBittorrent",
+      "online": "Workers online",
+      "connections": "Available connections",
+      "torrents": "Torrents",
+      "active": "{{value}} active",
+      "transfer": "Current transfer",
+      "currentSpeeds": "Current download / upload",
+      "download": "Download",
+      "upload": "Upload",
+      "freeByNode": "Free space by node",
+      "storedByNode": "Stored content by node",
+      "partial": "Partial — data from {{count}}/{{total}} workers",
+      "unavailable": "Unavailable",
+      "loading": "Loading…",
+      "updating": "Updating…",
+      "filtered": "Showing {{count}} filtered workers",
+      "empty": "No workers to compare",
+      "collectedAt": "Collected: {{time}}"
+    },
     "title": "Workers",
     "subtitle": "Manage your torrent clients and connections",
     "refresh": "Refresh",
@@ -762,6 +786,7 @@
       "worker": {
         "label": "Worker",
         "noneAvailable": "No active worker available",
+        "preferredUnavailable": "The preferred worker is unavailable. Choose another worker to add this torrent.",
         "select": "Select a worker",
         "freeSpace": "Free disk space:"
       },
@@ -825,6 +850,7 @@
         "workerRequired": "Select a worker",
         "magnetRequired": "Magnet URI is required",
         "magnetInvalidPrefix": "Magnet URI must start with 'magnet:'",
+        "magnetInvalidHash": "Magnet URI must contain a valid torrent hash (40 hexadecimal or 32 Base32 characters)",
         "fileRequired": "Select a .torrent file",
         "fileInvalidExtension": "File must have a .torrent extension",
         "categoryRequired": "Select a category",
@@ -1024,7 +1050,16 @@
     "deleteConfirmTitle": "Delete Category",
     "deleteConfirmMessage": "Are you sure you want to delete the category \"{{name}}\"? This action cannot be undone.",
     "immutableName": "Category name cannot be changed",
+    "preferredWorker": {
+      "none": "No preference",
+      "help": "Automatically selects this worker when choosing the category, unless you have already chosen another worker.",
+      "loading": "Loading workers…",
+      "loadFailed": "Could not load workers. Your preference has been kept.",
+      "retry": "Try again",
+      "unavailable": "Configured worker unavailable"
+    },
     "fields": {
+      "preferredWorker": "Preferred worker",
       "name": "Name",
       "defaultTags": "Default Tags",
       "defaultDirectories": "Default Directories",

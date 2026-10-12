@@ -76,6 +76,7 @@ func (m Module) Register() {
 	adminWorker.POST("/:id/peers/ban", m.banWorkerPeer)
 
 	m.workerRouter.GET("/:id", m.getWorker)
+	m.workerRouter.GET("/:id/overview", m.getWorkerOverview)
 
 	m.workerRouter.GET("/:id/schedules", m.listSchedules)
 	m.workerRouter.POST("/:id/schedules", m.createSchedule)

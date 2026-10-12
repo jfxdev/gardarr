@@ -28,6 +28,7 @@ func (r *Repository) CreateCategory(ctx context.Context, category entities.Categ
 		Name:               category.Name,
 		DefaultTags:        models.StringArray(category.DefaultTags),
 		DefaultDirectories: models.StringArray(category.DefaultDirectories),
+		PreferredWorkerID:  category.PreferredWorkerID,
 		MetadataSource:     category.MetadataSource,
 		ReleaseType:        category.ReleaseType,
 		Color:              category.Color,
@@ -93,6 +94,7 @@ func (r *Repository) UpdateCategory(ctx context.Context, category entities.Categ
 	updates := map[string]interface{}{
 		"default_tags":        models.StringArray(category.DefaultTags),
 		"default_directories": models.StringArray(category.DefaultDirectories),
+		"preferred_worker_id": category.PreferredWorkerID,
 		"metadata_source":     category.MetadataSource,
 		"release_type":        category.ReleaseType,
 		"color":               category.Color,
@@ -130,6 +132,7 @@ func toCategory(model models.Category) *entities.Category {
 		Name:               model.Name,
 		DefaultTags:        []string(model.DefaultTags),
 		DefaultDirectories: []string(model.DefaultDirectories),
+		PreferredWorkerID:  model.PreferredWorkerID,
 		MetadataSource:     model.MetadataSource,
 		ReleaseType:        model.ReleaseType,
 		Color:              model.Color,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -340,5 +341,97 @@ func TestRoutes_DeleteCategory_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestRoutes_CategoryPreferredWorkerLifecycle(t *testing.T) {
+	router, db := setupTestRouter(t)
+	if err := db.DB.AutoMigrate(&models.Worker{}); err != nil {
+		t.Fatal(err)
+	}
+	first := models.Worker{Name: "Offline preferred", Address: "http://offline.invalid"}
+	second := models.Worker{Name: "Other preferred", Address: "http://other.invalid"}
+	for _, worker := range []*models.Worker{&first, &second} {
+		if err := db.DB.Create(worker).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := sendJSONRequest(router, "POST", "/api/v1/categories", map[string]interface{}{
+		"name": "Affinity", "preferred_worker_id": strings.ToUpper(first.UUID.String()), "default_directories": []string{"/downloads/affinity"},
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", w.Code, w.Body.String())
+	}
+	var created models.CategoryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.PreferredWorkerID != first.UUID.String() {
+		t.Fatal("create did not return preference")
+	}
+	endpoint := "/api/v1/categories/" + created.ID
+	for _, update := range []struct {
+		body map[string]interface{}
+		want string
+	}{
+		{map[string]interface{}{"color": "#123456"}, first.UUID.String()},
+		{map[string]interface{}{"preferred_worker_id": second.UUID.String()}, second.UUID.String()},
+		{map[string]interface{}{"preferred_worker_id": ""}, ""},
+	} {
+		w = sendJSONRequest(router, "PUT", endpoint, update.body)
+		if w.Code != http.StatusOK {
+			t.Fatalf("update: %d %s", w.Code, w.Body.String())
+		}
+		for _, url := range []string{endpoint, "/api/v1/categories"} {
+			w = sendJSONRequest(router, "GET", url, nil)
+			if w.Code != http.StatusOK {
+				t.Fatalf("read: %d %s", w.Code, w.Body.String())
+			}
+			var response models.CategoryResponse
+			if url == endpoint {
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				var list []models.CategoryResponse
+				if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
+					t.Fatal(err)
+				}
+				if len(list) != 1 {
+					t.Fatalf("unexpected categories: %v", list)
+				}
+				response = list[0]
+			}
+			if response.PreferredWorkerID != update.want {
+				t.Fatalf("want %q, got %q", update.want, response.PreferredWorkerID)
+			}
+			if len(response.DefaultDirectories) != 1 || response.DefaultDirectories[0] != "/downloads/affinity" {
+				t.Fatal("unrelated directories changed")
+			}
+		}
+	}
+}
+
+func TestRoutes_RejectInvalidPreferredWorker(t *testing.T) {
+	router, db := setupTestRouter(t)
+	if err := db.DB.AutoMigrate(&models.Worker{}); err != nil {
+		t.Fatal(err)
+	}
+	created := sendJSONRequest(router, "POST", "/api/v1/categories", map[string]interface{}{"name": "Existing"})
+	var response models.CategoryResponse
+	if err := json.Unmarshal(created.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"not-a-uuid", "11111111-1111-4111-8111-111111111111"} {
+		for _, method := range []string{"POST", "PUT"} {
+			endpoint := "/api/v1/categories"
+			if method == "PUT" {
+				endpoint += "/" + response.ID
+			}
+			w := sendJSONRequest(router, method, endpoint, map[string]interface{}{"name": "Invalid", "preferred_worker_id": id})
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("%s with %q: %d %s", method, id, w.Code, w.Body.String())
+			}
+		}
 	}
 }
