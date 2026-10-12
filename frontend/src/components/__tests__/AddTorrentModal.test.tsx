@@ -678,11 +678,11 @@ describe("AddTorrentModal worker affinity", () => {
 
   it.each(["magnet", "file"] as const)("applies inferred preference and submits to that worker for %s", async (mode) => {
     renderModal(buildContext({ addModalMode: mode }));
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     const file = new File(["torrent"], "movie.torrent");
     if (mode === "magnet") changeMagnet();
     else fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [file] } });
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
     fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
     const create = mode === "magnet" ? createTaskMock : createTaskFromFileMock;
     await waitFor(() => expect(create).toHaveBeenCalled());
@@ -692,18 +692,18 @@ describe("AddTorrentModal worker affinity", () => {
   it("applies preference for a manually selected category", async () => {
     manualCategoryPreferredWorkerId = "worker-2";
     renderModal(buildContext());
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     fireEvent.click(screen.getByRole("button", { name: "Select category" }));
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
   });
 
   it.each(["missing", "INACTIVE", "ERRORED"])("requires manual selection when preferred worker is %s", async (status) => {
     listWorkersMock.mockResolvedValue({ data: status === "missing" ? [baseWorker] : [baseWorker, { ...preferredWorker, status }] });
     renderModal(buildContext());
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     changeMagnet();
     await screen.findByText("torrents.addModal.worker.preferredUnavailable");
-    await waitFor(() => expectSelectedWorker("torrents.addModal.worker.select"));
+    await waitFor(() => { expectSelectedWorker("torrents.addModal.worker.select"); });
     fireEvent.click(screen.getByRole("button", { name: "torrents.addModal.actions.add" }));
     expect(createTaskMock).not.toHaveBeenCalled();
     expect(screen.getByText("torrents.addModal.errors.workerRequired")).toBeInTheDocument();
@@ -724,7 +724,7 @@ describe("AddTorrentModal worker affinity", () => {
   it("preserves manual worker choice across inference, category and mode changes", async () => {
     manualCategoryPreferredWorkerId = "worker-2";
     renderModal(buildContext());
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     chooseWorker("Worker 1");
     changeMagnet();
     await screen.findByDisplayValue("Movie");
@@ -743,25 +743,25 @@ describe("AddTorrentModal worker affinity", () => {
   it("resets manual choice after closing and reopening", async () => {
     const context = buildContext();
     const view = renderModal(context);
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     chooseWorker("Worker 1");
     view.rerender(<AddTorrentContext.Provider value={{ ...context, isAddModalOpen: false }}><AddTorrentModal /></AddTorrentContext.Provider>);
     view.rerender(<AddTorrentContext.Provider value={context}><AddTorrentModal /></AddTorrentContext.Provider>);
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
     changeMagnet();
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
   });
 
   it.each(["magnet", "file"] as const)("restores default after clearing automatic affinity in %s mode", async (mode) => {
     renderModal(buildContext({ addModalMode: mode }));
     if (mode === "magnet") changeMagnet();
     else fireEvent.change(screen.getByLabelText(/torrents\.addModal\.file\.label/), { target: { files: [new File(["torrent"], "movie.torrent")] } });
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
     if (mode === "magnet") {
       parseReleaseMock.mockResolvedValue({ data: { ...movieSuggestion, release: { type: "unknown", confidence: "low" } } });
       changeMagnet("unknown");
     } else await userEvent.click(screen.getByRole("button", { name: "torrents.addModal.file.remove" }));
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
   });
 
   it.each([["workers", "magnet"], ["categories", "magnet"], ["workers", "file"], ["categories", "file"]] as const)("applies affinity when %s finish loading after parsing in %s mode", async (late, mode) => {
@@ -775,7 +775,7 @@ describe("AddTorrentModal worker affinity", () => {
     await screen.findByDisplayValue("Movie");
     if (late === "workers") workers.resolve({ data: [baseWorker, preferredWorker] });
     else categories.resolve({ data: [moviePreference] });
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
     expect(mode === "magnet" ? parseReleaseMock : parseReleaseFileMock).toHaveBeenCalledTimes(1);
   });
 
@@ -796,9 +796,9 @@ describe("AddTorrentModal worker affinity", () => {
     listCategoriesMock.mockResolvedValue({ data: [moviePreference, { ...moviePreference, id: "games", release_type: "game", preferred_worker_id: "worker-1" }] });
     renderModal(buildContext());
     changeMagnet();
-    await waitFor(() => expectSelectedWorker("Worker 2"));
+    await waitFor(() => { expectSelectedWorker("Worker 2"); });
     parseReleaseMock.mockResolvedValue({ data: { ...movieSuggestion, release: { type: "game", confidence: "high" } } });
     changeMagnet("game");
-    await waitFor(() => expectSelectedWorker("Worker 1"));
+    await waitFor(() => { expectSelectedWorker("Worker 1"); });
   });
 });

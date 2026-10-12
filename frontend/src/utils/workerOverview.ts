@@ -39,10 +39,24 @@ export function workerOverviewRows(workers: Worker[], states: WorkerOverviews): 
   });
 }
 
-export function sumOverviewMetric(rows: OverviewRow[], key: "stored" | "free" | "total" | "active" | "download" | "upload" | "online") {
-  const known = rows.filter(row => row[key] !== null);
+export type OverviewMetric = "stored" | "free" | "total" | "active" | "download" | "upload" | "online";
+
+export function overviewMetric(row: OverviewRow, key: OverviewMetric): number | null {
+  switch (key) {
+    case "stored": return row.stored;
+    case "free": return row.free;
+    case "total": return row.total;
+    case "active": return row.active;
+    case "download": return row.download;
+    case "upload": return row.upload;
+    case "online": return row.online;
+  }
+}
+
+export function sumOverviewMetric(rows: OverviewRow[], key: OverviewMetric) {
+  const known = rows.map(row => overviewMetric(row, key)).filter(value => value !== null);
   return {
-    value: rows.length === 0 || known.length > 0 ? known.reduce((sum, row) => sum + row[key]!, 0) : null,
+    value: rows.length === 0 || known.length > 0 ? known.reduce((sum, value) => sum + value, 0) : null,
     available: known.length,
     total: rows.length,
   };

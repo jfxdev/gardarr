@@ -8,7 +8,7 @@ require (
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/jfxdev/go-qbt v1.0.32-0.20261011220042-3f6f78cee11d
+	github.com/jfxdev/go-qbt v1.0.32
 	github.com/joho/godotenv v1.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2

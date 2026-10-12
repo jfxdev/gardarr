@@ -36,7 +36,7 @@ func TestOverviewAuthenticatedResponseUsesOneTorrentListing(t *testing.T) {
 	qbt := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v2/auth/login":
-			http.SetCookie(w, &http.Cookie{Name: "SID", Value: "test", Path: "/"})
+			http.SetCookie(w, &http.Cookie{Name: "SID", Value: "test", Path: "/", HttpOnly: true, Secure: true})
 			_, _ = w.Write([]byte("Ok."))
 		case "/api/v2/app/version":
 			_, _ = w.Write([]byte("v5.1.0"))
@@ -69,7 +69,7 @@ func TestOverviewAuthenticatedResponseUsesOneTorrentListing(t *testing.T) {
 	NewModule(router.Group("/v1"), db, svc, nil).Register()
 	token := createTestSession(t, db, "overview-fixture@example.test", "user")
 	req := httptest.NewRequest(http.MethodGet, "/v1/worker/"+worker.UUID.String()+"/overview", nil)
-	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: middlewares.SessionCookieName, Value: token, HttpOnly: true, Secure: true})
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

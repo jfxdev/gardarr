@@ -9,7 +9,7 @@ export interface WorkerOverviewState {
   error?: string;
 }
 
-export type WorkerOverviews = Record<string, WorkerOverviewState>;
+export type WorkerOverviews = Partial<Record<string, WorkerOverviewState>>;
 
 // One queue for the full page, independent of the search filter. Changing the
 // roster cancels obsolete work; each result is published as soon as it arrives.
@@ -20,13 +20,14 @@ export function useWorkerOverviews(workers: Worker[]): WorkerOverviews {
   useEffect(() => {
     const current = ++generation.current;
     const controller = new AbortController();
+    const obsolete = () => controller.signal.aborted || generation.current !== current;
     setStates(previous => Object.fromEntries(workers.map(worker => [worker.uuid, {
       ...previous[worker.uuid], checking: true,
     }])));
     let cursor = 0;
 
     async function consume() {
-      while (!controller.signal.aborted && cursor < workers.length) {
+      while (!obsolete() && cursor < workers.length) {
         const worker = workers[cursor++];
         let state: WorkerOverviewState;
         try {
@@ -37,12 +38,18 @@ export function useWorkerOverviews(workers: Worker[]): WorkerOverviews {
         } catch (error) {
           state = { error: error instanceof Error ? error.message : String(error), checking: false };
         }
-        if (controller.signal.aborted || generation.current !== current) return;
+        if (obsolete()) return;
         setStates(previous => ({ ...previous, [worker.uuid]: state }));
       }
     }
 
-    void Promise.all(Array.from({ length: Math.min(4, workers.length) }, consume));
+    void Promise.all(Array.from({ length: Math.min(4, workers.length) }, consume)).catch(error => {
+      if (obsolete()) return;
+      const message = error instanceof Error ? error.message : String(error);
+      setStates(previous => Object.fromEntries(Object.entries(previous).map(([id, state]) => [id,
+        state?.checking ? { error: message, checking: false } : state,
+      ])));
+    });
     return () => { controller.abort(); };
   }, [workers]);
 
@@ -62,6 +69,6 @@ export function overviewLiveStatus(state?: WorkerOverviewState): WorkerLiveStatu
     error_code: worker.error_code,
     permanent: worker.permanent,
     instance: worker.instance,
-    checking: state?.checking ?? false,
+    checking: state.checking,
   };
 }

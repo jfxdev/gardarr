@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatBytes, formatBytesPerSecond } from "@/utils/bytes";
-import { sumOverviewMetric, workerOverviewRows } from "@/utils/workerOverview";
+import { overviewMetric, sumOverviewMetric, workerOverviewRows } from "@/utils/workerOverview";
 import type { OverviewRow } from "@/utils/workerOverview";
 import type { Worker } from "@/types/worker";
 import type { WorkerOverviews } from "@/hooks/useWorkerOverviews";
@@ -36,15 +36,19 @@ function NodeComparison({ rows, metric, title, loading }: {
   const total = summary.value ?? 0;
   const partial = summary.available > 0 && summary.available < summary.total
     ? t("workers.overview.partial", { count: summary.available, total: summary.total }) : null;
-  const valueLabel = (row: OverviewRow) => row[metric] === null
-    ? t(row.checking ? "workers.overview.loading" : "workers.overview.unavailable") : formatBytes(row[metric]!);
+  const entries = rows.map(row => ({ row, value: overviewMetric(row, metric) }));
+  const valueLabel = ({ row, value }: typeof entries[number]) => value === null
+    ? t(row.checking ? "workers.overview.loading" : "workers.overview.unavailable") : formatBytes(value);
   const color = (row: OverviewRow) => /^#[\da-f]{6}$/i.test(row.worker.color ?? "")
     ? row.worker.color : "var(--chart-1)";
-  const details = (row: OverviewRow) => <>
-    <p className="max-w-72 break-words font-medium">{row.worker.name}</p>
-    <p>{title}: {valueLabel(row)}{row[metric] !== null && total > 0 && ` · ${new Intl.NumberFormat(i18n.language, { style: "percent", maximumFractionDigits: 1 }).format(row[metric]! / total)}`}</p>
-    {row[metric] !== null && row.collectedAt && <p className="text-xs">{t("workers.overview.collectedAt", { time: new Date(row.collectedAt).toLocaleString(i18n.language) })}</p>}
-  </>;
+  const details = (entry: typeof entries[number]) => {
+    const { row, value } = entry;
+    return <>
+      <p className="max-w-72 break-words font-medium">{row.worker.name}</p>
+      <p>{title}: {valueLabel(entry)}{value !== null && total > 0 && ` · ${new Intl.NumberFormat(i18n.language, { style: "percent", maximumFractionDigits: 1 }).format(value / total)}`}</p>
+      {value !== null && row.collectedAt && <p className="text-xs">{t("workers.overview.collectedAt", { time: new Date(row.collectedAt).toLocaleString(i18n.language) })}</p>}
+    </>;
+  };
 
   return <Card className="min-w-0 gap-1 py-1.5 shadow-none" aria-busy={loading}>
     <div className="flex items-center justify-between gap-2 px-3">
@@ -60,24 +64,31 @@ function NodeComparison({ rows, metric, title, loading }: {
     </div>
     <CardContent className="space-y-1 px-3">
       <div role="group" aria-label={title} className="flex h-2.5 overflow-hidden rounded-full bg-muted">
-        {rows.filter(row => row[metric] !== null && row[metric]! > 0).map(row => <Tooltip key={row.worker.uuid}>
-          <TooltipTrigger asChild>
-            <button type="button" tabIndex={-1} aria-label={`${row.worker.name}: ${valueLabel(row)}`} className="h-full shrink-0 outline-none" style={{ width: `${row[metric]! / total * 100}%`, backgroundColor: color(row), boxShadow: "inset -1px 0 0 var(--card)" }} />
-          </TooltipTrigger>
-          <TooltipContent>{details(row)}</TooltipContent>
-        </Tooltip>)}
+        {entries.map(entry => {
+          const { row, value } = entry;
+          if (value === null || value <= 0) return null;
+          return <Tooltip key={row.worker.uuid}>
+            <TooltipTrigger asChild>
+              <button type="button" tabIndex={-1} aria-label={`${row.worker.name}: ${valueLabel(entry)}`} className="h-full shrink-0 outline-none" style={{ width: `${value / total * 100}%`, backgroundColor: color(row), boxShadow: "inset -1px 0 0 var(--card)" }} />
+            </TooltipTrigger>
+            <TooltipContent>{details(entry)}</TooltipContent>
+          </Tooltip>;
+        })}
       </div>
       <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap text-[10px] leading-4 text-muted-foreground">
-        {rows.length === 0 ? <span>{t(loading ? "workers.overview.loading" : "workers.overview.empty")}</span> : rows.map(row => <Tooltip key={row.worker.uuid}>
-          <TooltipTrigger asChild>
-            <button type="button" aria-label={`${row.worker.name}: ${valueLabel(row)}`} className="flex shrink-0 items-center gap-1 rounded-sm outline-offset-2">
-              <span className={`h-1.5 w-1.5 rounded-full ${row[metric] === null ? "border border-dashed border-muted-foreground" : ""}`} style={row[metric] === null ? undefined : { backgroundColor: color(row) }} aria-hidden="true" />
-              <span className="max-w-24 truncate">{row.worker.name}</span>
-              {row[metric] === null && <span aria-hidden="true">—</span>}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{details(row)}</TooltipContent>
-        </Tooltip>)}
+        {rows.length === 0 ? <span>{t(loading ? "workers.overview.loading" : "workers.overview.empty")}</span> : entries.map(entry => {
+          const { row, value } = entry;
+          return <Tooltip key={row.worker.uuid}>
+            <TooltipTrigger asChild>
+              <button type="button" aria-label={`${row.worker.name}: ${valueLabel(entry)}`} className="flex shrink-0 items-center gap-1 rounded-sm outline-offset-2">
+                <span className={`h-1.5 w-1.5 rounded-full ${value === null ? "border border-dashed border-muted-foreground" : ""}`} style={value === null ? undefined : { backgroundColor: color(row) }} aria-hidden="true" />
+                <span className="max-w-24 truncate">{row.worker.name}</span>
+                {value === null && <span aria-hidden="true">—</span>}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{details(entry)}</TooltipContent>
+          </Tooltip>;
+        })}
       </div>
     </CardContent>
   </Card>;

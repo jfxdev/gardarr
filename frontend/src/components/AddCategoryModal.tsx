@@ -312,7 +312,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
             <Label htmlFor="preferred-worker" className="text-sm">{t("categories.fields.preferredWorker")}</Label>
             <Select
               value={createForm.preferred_worker_id || "none"}
-              onValueChange={(value) => setCreateForm((current) => ({ ...current, preferred_worker_id: value === "none" ? "" : value }))}
+              onValueChange={(value) => { setCreateForm((current) => ({ ...current, preferred_worker_id: value === "none" ? "" : value })); }}
               disabled={workersLoading || workersLoadFailed}
             >
               <SelectTrigger id="preferred-worker" className="h-9"><SelectValue /></SelectTrigger>

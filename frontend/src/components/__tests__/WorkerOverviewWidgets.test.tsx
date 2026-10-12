@@ -10,6 +10,12 @@ import { WorkerOverviewWidgets } from "../WorkerOverviewWidgets";
 const i18n = createInstance();
 await i18n.init({ lng: "en-US", resources: { "en-US": { translation: en }, "pt-BR": { translation: pt } }, interpolation: { escapeValue: false } });
 
+function widgetContainer(title: string) {
+  const card = screen.getByRole("heading", { name: title }).parentElement?.parentElement;
+  if (!card) throw new Error(`Widget container is missing: ${title}`);
+  return card;
+}
+
 describe("WorkerOverviewWidgets", () => {
   it("divides each bar by the sum of known values and keeps unavailable workers in the legend", () => {
     const workers = [makeWorker("low", "Small"), makeWorker("high", "Large"), makeWorker("offline", "Offline")];
@@ -21,7 +27,7 @@ describe("WorkerOverviewWidgets", () => {
     expect(screen.getAllByLabelText("Partial — data from 2/3 workers").length).toBeGreaterThan(0);
     expect(screen.getAllByText("5.00 KB").length).toBeGreaterThan(0);
     expect(screen.getByText("Showing 3 filtered workers")).toBeInTheDocument();
-    const comparison = screen.getByRole("heading", { name: "Stored content by node" }).parentElement!.parentElement!;
+    const comparison = widgetContainer("Stored content by node");
     const segments = within(screen.getByRole("group", { name: "Stored content by node" })).getAllByRole("button");
     expect(segments.map(segment => segment.getAttribute("aria-label"))).toEqual(["Small: 1.00 KB", "Large: 4.00 KB"]);
     expect(segments[0]).toHaveStyle({ width: "20%" });
@@ -34,7 +40,7 @@ describe("WorkerOverviewWidgets", () => {
 
   it("renders an empty selection with zero totals and no comparison rows", () => {
     render(<I18nextProvider i18n={i18n}><WorkerOverviewWidgets workers={[]} states={{}} filtered refreshing={false} /></I18nextProvider>);
-    const stored = screen.getByRole("heading", { name: "Total stored" }).parentElement!.parentElement!;
+    const stored = widgetContainer("Total stored");
     expect(within(stored).getByText("0 B")).toBeInTheDocument();
     expect(screen.getAllByText("No workers to compare")).toHaveLength(2);
   });
@@ -42,7 +48,7 @@ describe("WorkerOverviewWidgets", () => {
   it("keeps every worker keyboard-accessible in the legend", () => {
     const workers = Array.from({ length: 8 }, (_, i) => makeWorker(String(i)));
     render(<I18nextProvider i18n={i18n}><WorkerOverviewWidgets workers={workers} states={Object.fromEntries(workers.map(w => [w.uuid, { overview: makeOverview(w), checking: false }]))} filtered={false} refreshing={false} /></I18nextProvider>);
-    const chart = screen.getByRole("heading", { name: "Stored content by node" }).parentElement!.parentElement!;
+    const chart = widgetContainer("Stored content by node");
     workers.forEach(worker => {
       const buttons = within(chart).getAllByRole("button", { name: `${worker.name}: 2.93 KB` });
       expect(buttons).toHaveLength(2);
@@ -58,7 +64,7 @@ describe("WorkerOverviewWidgets", () => {
     render(<I18nextProvider i18n={i18n}><WorkerOverviewWidgets workers={workers} states={{ zero: { overview, checking: false }, missing: { checking: false } }} filtered={false} refreshing={false} /></I18nextProvider>);
     for (const title of ["Free space by node", "Stored content by node"]) {
       expect(within(screen.getByRole("group", { name: title })).queryAllByRole("button")).toHaveLength(0);
-      const chart = screen.getByRole("heading", { name: title }).parentElement!.parentElement!;
+      const chart = widgetContainer(title);
       expect(within(chart).getByRole("button", { name: "zero: 0 B" })).toBeInTheDocument();
       expect(within(chart).getByRole("button", { name: "missing: Unavailable" })).toBeInTheDocument();
     }
