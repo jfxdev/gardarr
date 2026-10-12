@@ -15,10 +15,10 @@ const workers = [
 const category: Category = { id: "movies", name: "Movies", preferred_worker_id: "worker-1", default_tags: [], default_directories: [], metadata_source: "none", created_at: "", updated_at: "" };
 
 beforeAll(() => {
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, writable: true, value: vi.fn() });
-  Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", { configurable: true, writable: true, value: () => false });
-  Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { configurable: true, writable: true, value: vi.fn() });
-  Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", { configurable: true, writable: true, value: vi.fn() });
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.setPointerCapture = vi.fn();
+  HTMLElement.prototype.releasePointerCapture = vi.fn();
 });
 
 async function choosePreference(name: string) {

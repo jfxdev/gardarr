@@ -25,31 +25,36 @@ export function useWorkerOverviews(workers: Worker[]): WorkerOverviews {
       ...previous[worker.uuid], checking: true,
     }])));
     let cursor = 0;
-
-    async function consume() {
-      while (!obsolete() && cursor < workers.length) {
-        const worker = workers[cursor++];
-        let state: WorkerOverviewState;
-        try {
-          const response = await workerService.getWorkerOverview(worker.uuid, controller.signal);
-          state = response.data && !response.error
-            ? { overview: response.data, checking: false }
-            : { error: response.error, checking: false };
-        } catch (error) {
-          state = { error: error instanceof Error ? error.message : String(error), checking: false };
-        }
-        if (obsolete()) return;
-        setStates(previous => ({ ...previous, [worker.uuid]: state }));
-      }
-    }
-
-    void Promise.all(Array.from({ length: Math.min(4, workers.length) }, consume)).catch(error => {
+    const failQueue = (error: unknown) => {
       if (obsolete()) return;
       const message = error instanceof Error ? error.message : String(error);
       setStates(previous => Object.fromEntries(Object.entries(previous).map(([id, state]) => [id,
         state?.checking ? { error: message, checking: false } : state,
       ])));
-    });
+    };
+
+    async function consume() {
+      try {
+        while (!obsolete() && cursor < workers.length) {
+          const worker = workers[cursor++];
+          let state: WorkerOverviewState;
+          try {
+            const response = await workerService.getWorkerOverview(worker.uuid, controller.signal);
+            state = response.data && !response.error
+              ? { overview: response.data, checking: false }
+              : { error: response.error, checking: false };
+          } catch (error) {
+            state = { error: error instanceof Error ? error.message : String(error), checking: false };
+          }
+          if (obsolete()) return;
+          setStates(previous => ({ ...previous, [worker.uuid]: state }));
+        }
+      } catch (error) {
+        failQueue(error);
+      }
+    }
+
+    void Promise.all(Array.from({ length: Math.min(4, workers.length) }, consume)).catch(failQueue);
     return () => { controller.abort(); };
   }, [workers]);
 
