@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes } from '../bytes';
+import { formatBytes, formatBytesPerSecond } from '../bytes';
 
 describe('formatBytes', () => {
   it('returns 0 B for 0 or negative values', () => {
@@ -26,6 +26,19 @@ describe('formatBytes', () => {
     // Values >= 100: 0 decimals
     const hundredGB = 100 * 1024 * 1024 * 1024;
     expect(formatBytes(hundredGB)).toBe('100 GB');
+  });
+
+  it('formats petabyte and 64-bit byte totals with defined units', () => {
+    expect(formatBytes(1024 ** 5)).toBe('1.00 PB');
+    expect(formatBytes(Number(2n ** 63n - 1n))).toBe('8.00 EB');
+    expect(formatBytes(1024 ** 7)).toBe('1024 EB');
+    expect(formatBytesPerSecond(1024 ** 5)).toBe('1.00 PB/s');
+  });
+
+  it('handles non-finite and sub-byte input without an undefined unit', () => {
+    expect(formatBytes(Infinity)).toBe('0 B');
+    expect(formatBytes(NaN)).toBe('0 B');
+    expect(formatBytes(0.5)).toBe('0.50 B');
   });
 });
 

@@ -17,6 +17,18 @@ function widgetContainer(title: string) {
 }
 
 describe("WorkerOverviewWidgets", () => {
+  it("formats petabyte totals and individual worker labels", () => {
+    const first = makeWorker("first", "First");
+    const second = makeWorker("second", "Second");
+    render(<I18nextProvider i18n={i18n}><WorkerOverviewWidgets workers={[first, second]} states={{
+      first: { overview: makeOverview(first, 1024 ** 5), checking: false },
+      second: { overview: makeOverview(second, 2 * 1024 ** 5), checking: false },
+    }} filtered={false} refreshing={false} /></I18nextProvider>);
+    expect(within(widgetContainer("Total stored")).getByText("3.00 PB")).toBeInTheDocument();
+    const segments = within(screen.getByRole("group", { name: "Stored content by node" })).getAllByRole("button");
+    expect(segments.map(segment => segment.getAttribute("aria-label"))).toEqual(["First: 1.00 PB", "Second: 2.00 PB"]);
+  });
+
   it("divides each bar by the sum of known values and keeps unavailable workers in the legend", () => {
     const workers = [makeWorker("low", "Small"), makeWorker("high", "Large"), makeWorker("offline", "Offline")];
     render(<I18nextProvider i18n={i18n}><WorkerOverviewWidgets workers={workers} states={{
