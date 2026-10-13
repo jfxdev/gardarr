@@ -1,11 +1,66 @@
 package task
 
 import (
+	"encoding/json"
+	"net/http"
 	"reflect"
 	"testing"
 
+	"github.com/jfxdev/gardarr/internal/schemas"
 	"github.com/jfxdev/go-qbt"
 )
+
+func TestRepositoryAddBase32Magnet(t *testing.T) {
+	const hash = "5a0cdacbd5571efcdd5e279fcb0e913b6c36cb36"
+	const magnet = "magnet:?xt=urn:btih:lignvs6vk4ppzxk6e6p4wdurhnwdnszw&dn=Example"
+	var addedMagnet, taggedHash string
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/torrents/add":
+			if err := r.ParseForm(); err != nil {
+				t.Error(err)
+			}
+			addedMagnet = r.Form.Get("urls")
+		case "/api/v2/torrents/info":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]any{{
+				"hash": hash, "name": "Example", "magnet_uri": "magnet:?xt=urn:btih:" + hash,
+			}})
+		case "/api/v2/torrents/addTags":
+			if err := r.ParseForm(); err != nil {
+				t.Error(err)
+			}
+			taggedHash = r.Form.Get("hashes")
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	})
+	task, err := New(client).Add(schemas.TaskCreateSchema{MagnetURI: magnet, Tags: []string{"movie"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Hash != hash || addedMagnet != magnet || taggedHash != hash {
+		t.Fatalf("unexpected task/add/tags: %#v, %q, %q", task, addedMagnet, taggedHash)
+	}
+}
+
+func TestParseMagnetLinkBase32(t *testing.T) {
+	const hash = "5a0cdacbd5571efcdd5e279fcb0e913b6c36cb36"
+	for _, encoded := range []string{"lignvs6vk4ppzxk6e6p4wdurhnwdnszw", "LIGNVS6VK4PPZXK6E6P4WDURHNWDNSZW", hash} {
+		t.Run(encoded, func(t *testing.T) {
+			uri, err := ParseMagnetLink("magnet:?xt=urn:btih:" + encoded + "&dn=Gardarr Test Fixture.2026.1080p.WEB-DL.x264&tr=udp://tracker.example.invalid:1337/announce")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if uri.Hash != hash || uri.DisplayName != "Gardarr Test Fixture.2026.1080p.WEB-DL.x264" || !reflect.DeepEqual(uri.Trackers, []string{"udp://tracker.example.invalid:1337/announce"}) {
+				t.Fatalf("unexpected parsed magnet: %#v", uri)
+			}
+		})
+	}
+	if _, err := ParseMagnetLink("magnet:?xt=urn:btih:00000000000000000000000000000000"); err == nil {
+		t.Fatal("expected invalid Base32 hash to be rejected")
+	}
+}
 
 func TestDiffTaskTags(t *testing.T) {
 	t.Parallel()

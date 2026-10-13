@@ -17,10 +17,11 @@ const PENDING_STATUS: WorkerLiveStatus = { status: "PENDING", checking: true };
 // independently of whatever list it was rendered from. Re-fetches whenever
 // workerId or refreshToken change, so a parent can force every row to
 // re-check by bumping a shared refreshToken.
-export function useWorkerLiveStatus(workerId: string, refreshToken = 0): WorkerLiveStatus {
+export function useWorkerLiveStatus(workerId: string, refreshToken = 0, enabled = true): WorkerLiveStatus {
   const [live, setLive] = useState<WorkerLiveStatus>(PENDING_STATUS);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     setLive(PENDING_STATUS);
 
@@ -46,7 +47,7 @@ export function useWorkerLiveStatus(workerId: string, refreshToken = 0): WorkerL
     return () => {
       cancelled = true;
     };
-  }, [workerId, refreshToken]);
+  }, [workerId, refreshToken, enabled]);
 
   return live;
 }

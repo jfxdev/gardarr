@@ -11,11 +11,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Check, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Category, CategoryMetadataSource, CategoryReleaseType, CreateCategoryRequest, UpdateCategoryRequest } from "../types/category";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { availableIcons, availableColors, getCategoryIcon } from "../utils/categoryUtils";
+
+import { workerService } from "@/services/workers";
+import { WorkerIcon } from "@/components/ui/WorkerIcon";
+import type { Worker } from "@/types/worker";
 
 interface AddCategoryModalProps {
   open: boolean;
@@ -31,11 +35,46 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
     name: "",
     default_tags: [],
     default_directories: [],
+    preferred_worker_id: "",
     metadata_source: "none",
     release_type: "none",
     color: "#3b82f6",
     icon: "Folder"
   });
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [workersLoading, setWorkersLoading] = useState(false);
+  const [workersLoadFailed, setWorkersLoadFailed] = useState(false);
+  const workerRequestId = useRef(0);
+
+  const loadWorkers = useCallback(async () => {
+    const requestId = ++workerRequestId.current;
+    setWorkersLoading(true);
+    setWorkersLoadFailed(false);
+    try {
+      const response = await workerService.listWorkersBasic();
+      if (requestId !== workerRequestId.current) return;
+      if (response.error || !response.data) {
+        setWorkersLoadFailed(true);
+      } else {
+        setWorkers(response.data);
+      }
+    } catch {
+      if (requestId === workerRequestId.current) setWorkersLoadFailed(true);
+    } finally {
+      if (requestId === workerRequestId.current) setWorkersLoading(false);
+    }
+  }, []);
+
+  const invalidateWorkerRequest = useCallback(() => { workerRequestId.current++; }, []);
+
+  useEffect(() => {
+    if (open) {
+      setWorkers([]);
+      void loadWorkers();
+    }
+    return invalidateWorkerRequest;
+  }, [open, loadWorkers, invalidateWorkerRequest]);
+
   const [tagInput, setTagInput] = useState("");
   const [directoryInput, setDirectoryInput] = useState("");
   
@@ -49,6 +88,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
           name: editingCategory.name,
           default_tags: [...(editingCategory.default_tags || [])],
           default_directories: [...(editingCategory.default_directories || [])],
+          preferred_worker_id: editingCategory.preferred_worker_id || "",
           metadata_source: editingCategory.metadata_source || "none",
           release_type: editingCategory.release_type || "none",
           color: editingCategory.color || "#3b82f6",
@@ -60,6 +100,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
           name: "",
           default_tags: [],
           default_directories: [],
+          preferred_worker_id: "",
           metadata_source: "none",
           release_type: "none",
           color: "#3b82f6",
@@ -83,6 +124,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         const updateData: UpdateCategoryRequest = {
           default_tags: createForm.default_tags,
           default_directories: createForm.default_directories,
+          preferred_worker_id: createForm.preferred_worker_id,
           metadata_source: createForm.metadata_source,
           release_type: createForm.release_type,
           color: createForm.color,
@@ -99,6 +141,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
         name: "",
         default_tags: [],
         default_directories: [],
+        preferred_worker_id: "",
         metadata_source: "none",
         release_type: "none",
         color: "#3b82f6",
@@ -175,6 +218,7 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
       name: "",
       default_tags: [],
       default_directories: [],
+      preferred_worker_id: "",
       metadata_source: "none",
       release_type: "none",
       color: "#3b82f6",
@@ -262,6 +306,42 @@ export function AddCategoryModal({ open, onOpenChange, onCategoryCreated, editin
             <div className="text-xs text-muted-foreground">
               {t('categories.tagsHint')}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="preferred-worker" className="text-sm">{t("categories.fields.preferredWorker")}</Label>
+            <Select
+              value={createForm.preferred_worker_id || "none"}
+              onValueChange={(value) => { setCreateForm((current) => ({ ...current, preferred_worker_id: value === "none" ? "" : value })); }}
+              disabled={workersLoading || workersLoadFailed}
+            >
+              <SelectTrigger id="preferred-worker" className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("categories.preferredWorker.none")}</SelectItem>
+                {createForm.preferred_worker_id && !workers.some((worker) => worker.uuid === createForm.preferred_worker_id) && (
+                  <SelectItem value={createForm.preferred_worker_id} disabled>{t("categories.preferredWorker.unavailable")}</SelectItem>
+                )}
+                {workers.map((worker) => (
+                  <SelectItem key={worker.uuid} value={worker.uuid}>
+                    <span className="flex items-center gap-2">
+                      <WorkerIcon iconName={worker.icon} color={worker.color} size="sm" />
+                      <span>{worker.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t(workersLoading ? "categories.preferredWorker.loading" : "categories.preferredWorker.help")}
+            </p>
+            {workersLoadFailed && (
+              <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+                <span>{t("categories.preferredWorker.loadFailed")}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void loadWorkers()}>
+                  {t("categories.preferredWorker.retry")}
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

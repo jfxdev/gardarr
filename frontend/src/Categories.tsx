@@ -19,16 +19,20 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { categoryService } from "./services/categories";
+import { workerService } from "./services/workers";
+import type { Worker } from "./types/worker";
 import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from "./types/category";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { AddCategoryModal } from "./components/AddCategoryModal";
 import { TagBadge } from "./components/ui/TagBadge";
+import { WorkerIcon } from "./components/ui/WorkerIcon";
 import { getCategoryIcon } from "./utils/categoryUtils";
 
 function Categories() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -40,7 +44,17 @@ function Categories() {
   const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await categoryService.listCategories();
+      const [categoriesResult, workersResult] = await Promise.allSettled([
+        categoryService.listCategories(),
+        workerService.listWorkersBasic(),
+      ]);
+      if (workersResult.status === "fulfilled" && workersResult.value.data) {
+        setWorkers(workersResult.value.data);
+      }
+      if (categoriesResult.status === "rejected") {
+        throw categoriesResult.reason;
+      }
+      const response = categoriesResult.value;
       
       if (response.error) {
         toast.error(response.error);
@@ -135,6 +149,24 @@ function Categories() {
 
 
 
+  const renderPreferredWorker = (category: Category) => {
+    if (!category.preferred_worker_id) {
+      return <span className="text-xs text-muted-foreground">{t("categories.preferredWorker.none")}</span>;
+    }
+
+    const worker = workers.find((item) => item.uuid === category.preferred_worker_id);
+    if (!worker) {
+      return <span className="text-xs text-muted-foreground">{t("categories.preferredWorker.unavailable")}</span>;
+    }
+
+    return (
+      <div className="flex min-w-0 items-center gap-1.5 text-xs" title={worker.name}>
+        <WorkerIcon iconName={worker.icon} color={worker.color} size="sm" />
+        <span className="max-w-[200px] truncate">{worker.name}</span>
+      </div>
+    );
+  };
+
   // Filter categories
   const filteredCategories = categories
     .filter(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -208,7 +240,8 @@ function Categories() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.name')}</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.defaultDirectory')}</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.preferredWorker')}</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.defaultDirectories')}</th>
                       <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.defaultTags')}</th>
                       <th className="text-left p-3 font-medium text-muted-foreground text-sm">{t('categories.fields.metadataSource')}</th>
                     </tr>
@@ -242,6 +275,9 @@ function Categories() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </div>
+                        </td>
+                        <td className="p-3">
+                          {renderPreferredWorker(category)}
                         </td>
                         <td className="p-3">
                           {category.default_directories?.length > 0 && (
@@ -328,6 +364,11 @@ function Categories() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
+                  </div>
+
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-xs text-muted-foreground">{t("categories.fields.preferredWorker")}:</span>
+                    {renderPreferredWorker(category)}
                   </div>
 
                   {category.default_directories?.length > 0 && (

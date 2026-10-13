@@ -1,6 +1,8 @@
 package task
 
 import (
+	"encoding/base32"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -71,14 +73,14 @@ func (s *Repository) Add(schema schemas.TaskCreateSchema) (*entities.Task, error
 		return nil, err
 	}
 
-	uri, err := qbt.ParseMagnetLink(schema.MagnetURI)
+	uri, err := ParseMagnetLink(schema.MagnetURI)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse magnet link")
 	}
 
 	var task *qbt.TorrentResponse
 	for _, item := range list {
-		if strings.EqualFold(item.MagnetLink.Hash, uri.Hash) {
+		if strings.EqualFold(item.Hash, uri.Hash) || strings.EqualFold(item.MagnetLink.Hash, uri.Hash) {
 			task = item
 			if tags := normalizeDesiredTags(schema.Tags); len(tags) > 0 {
 				if err := s.client.AddTorrentTags(task.Hash, tags); err != nil {
@@ -494,6 +496,13 @@ func ParseMagnetLink(magnetURI string) (*entities.TaskMagnetLink, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse magnet link")
 	}
+	if len(uri.Hash) == 32 {
+		decoded, err := base32.StdEncoding.DecodeString(strings.ToUpper(uri.Hash))
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid Base32 torrent hash")
+		}
+		uri.Hash = hex.EncodeToString(decoded)
+	}
 
 	return &entities.TaskMagnetLink{
 		Hash:        uri.Hash,
@@ -733,23 +742,24 @@ func toTask(item *qbt.TorrentResponse) *entities.Task {
 	}
 
 	return &entities.Task{
-		ID:          item.Hash,
-		Name:        strings.TrimSpace(item.Name),
-		Hash:        item.Hash,
-		InfoHashV1:  item.InfoHashV1,
-		InfoHashV2:  item.InfoHashV2,
-		CreatedAt:   time.Unix(int64(item.AddedOn), 0),
-		CompletedAt: completedAt,
-		Category:    item.Category,
-		Path:        item.SavePath,
-		State:       status,
-		Size:        item.Size,
-		Priority:    item.Priority,
-		Ratio:       item.Ratio,
-		Progress:    item.Progress * 100,
-		Popularity:  item.Popularity,
-		MagnetURI:   item.MagnetURI,
-		Active:      active,
+		ID:             item.Hash,
+		Name:           strings.TrimSpace(item.Name),
+		Hash:           item.Hash,
+		InfoHashV1:     item.InfoHashV1,
+		InfoHashV2:     item.InfoHashV2,
+		CreatedAt:      time.Unix(int64(item.AddedOn), 0),
+		CompletedAt:    completedAt,
+		Category:       item.Category,
+		Path:           item.SavePath,
+		State:          status,
+		Size:           item.Size,
+		CompletedBytes: item.Completed,
+		Priority:       item.Priority,
+		Ratio:          item.Ratio,
+		Progress:       item.Progress * 100,
+		Popularity:     item.Popularity,
+		MagnetURI:      item.MagnetURI,
+		Active:         active,
 		MagnetLink: entities.TaskMagnetLink{
 			Hash:        item.MagnetLink.Hash,
 			DisplayName: item.MagnetLink.DisplayName,

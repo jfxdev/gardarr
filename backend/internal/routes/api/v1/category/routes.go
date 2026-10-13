@@ -1,6 +1,7 @@
 package category
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,13 +10,13 @@ import (
 	"github.com/jfxdev/gardarr/internal/middlewares"
 	"github.com/jfxdev/gardarr/internal/models"
 	"github.com/jfxdev/gardarr/internal/schemas"
-	"github.com/jfxdev/gardarr/internal/services/category"
+	categoryservice "github.com/jfxdev/gardarr/internal/services/category"
 )
 
 // Module holds category routes configuration
 type Module struct {
 	group   *gin.RouterGroup
-	service *category.Service
+	service *categoryservice.Service
 	db      *database.Database
 }
 
@@ -23,7 +24,7 @@ type Module struct {
 func NewModule(router *gin.RouterGroup, db *database.Database) *Module {
 	return &Module{
 		group:   router.Group("/categories"),
-		service: category.NewService(db),
+		service: categoryservice.NewService(db),
 		db:      db,
 	}
 }
@@ -55,6 +56,7 @@ func (m *Module) createCategory(c *gin.Context) {
 		Name:               body.Name,
 		DefaultTags:        body.DefaultTags,
 		DefaultDirectories: body.DefaultDirectories,
+		PreferredWorkerID:  body.PreferredWorkerID,
 		MetadataSource:     defaultMetadataSource(body.MetadataSource),
 		ReleaseType:        defaultReleaseType(body.ReleaseType),
 		Color:              body.Color,
@@ -64,6 +66,9 @@ func (m *Module) createCategory(c *gin.Context) {
 	created, err := m.service.CreateCategory(c.Request.Context(), category)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
+		if errors.Is(err, categoryservice.ErrInvalidPreferredWorker) {
+			statusCode = http.StatusBadRequest
+		}
 		if err.Error() == "category with this name already exists" {
 			statusCode = http.StatusConflict
 		}
@@ -145,6 +150,7 @@ func (m *Module) updateCategory(c *gin.Context) {
 		Name:               existing.Name, // Name is immutable
 		DefaultTags:        existing.DefaultTags,
 		DefaultDirectories: existing.DefaultDirectories,
+		PreferredWorkerID:  existing.PreferredWorkerID,
 		MetadataSource:     existing.MetadataSource,
 		ReleaseType:        existing.ReleaseType,
 		Color:              existing.Color,
@@ -152,6 +158,9 @@ func (m *Module) updateCategory(c *gin.Context) {
 	}
 
 	// Update only provided fields
+	if body.PreferredWorkerID != nil {
+		updated.PreferredWorkerID = *body.PreferredWorkerID
+	}
 	if body.DefaultTags != nil {
 		updated.DefaultTags = body.DefaultTags
 	}
@@ -174,6 +183,9 @@ func (m *Module) updateCategory(c *gin.Context) {
 	result, err := m.service.UpdateCategory(c.Request.Context(), updated)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
+		if errors.Is(err, categoryservice.ErrInvalidPreferredWorker) {
+			statusCode = http.StatusBadRequest
+		}
 		if err.Error() == "category not found" {
 			statusCode = http.StatusNotFound
 		}
@@ -211,6 +223,7 @@ func (m *Module) toResponse(cat *entities.Category) models.CategoryResponse {
 		Name:               cat.Name,
 		DefaultTags:        cat.DefaultTags,
 		DefaultDirectories: models.StringArray(cat.DefaultDirectories),
+		PreferredWorkerID:  cat.PreferredWorkerID,
 		MetadataSource:     defaultMetadataSource(cat.MetadataSource),
 		ReleaseType:        defaultReleaseType(cat.ReleaseType),
 		Color:              cat.Color,

@@ -515,6 +515,7 @@ func TestServiceCreateTask(t *testing.T) {
 	}
 
 	// Test create with repository error
+	delete(mockRepo.tasks, task.Hash)
 	mockRepo.createError = errors.New("repository error")
 	_, err = service.CreateTask(ctx, schema)
 	if err == nil {
@@ -571,6 +572,28 @@ func TestServiceCreateTaskMarksDeduplicatedTaskAsNotCreated(t *testing.T) {
 	}
 	if task.WasCreated {
 		t.Error("Expected a deduplicated task to be marked as not created")
+	}
+}
+
+func TestServiceCreateTaskDeduplicatesBase32Magnet(t *testing.T) {
+	const hash = "5a0cdacbd5571efcdd5e279fcb0e913b6c36cb36"
+	mockRepo := newMockRepository()
+	existing := &entities.Task{
+		ID: hash, Hash: hash, WasCreated: true,
+		MagnetLink: entities.TaskMagnetLink{Hash: "lignvs6vk4ppzxk6e6p4wdurhnwdnszw"},
+	}
+	mockRepo.tasks[hash] = existing
+	// An Add call would fail, so success verifies that deduplication happened first.
+	mockRepo.createError = errors.New("must not add a duplicate torrent")
+	service := &service{repository: mockRepo}
+	task, err := service.CreateTask(context.Background(), schemas.TaskCreateSchema{
+		MagnetURI: "magnet:?xt=urn:btih:lignvs6vk4ppzxk6e6p4wdurhnwdnszw",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task != existing || task.WasCreated {
+		t.Fatalf("expected existing task without creation flag, got %#v", task)
 	}
 }
 

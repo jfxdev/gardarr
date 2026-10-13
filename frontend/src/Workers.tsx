@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Check,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { workerService } from "./services/workers";
 import type { Worker, UpdateWorkerRequest } from "./types/worker";
@@ -28,14 +28,16 @@ import { availableIcons, availableColors } from "./utils/workerUtils";
 import { WorkerDetailsModal } from "./components/WorkerDetailsModal";
 import { AddWorkerModal } from "./components/AddWorkerModal";
 import { WorkerCard } from "./components/WorkerCard";
+import { WorkerOverviewWidgets } from "./components/WorkerOverviewWidgets";
+import { overviewLiveStatus, useWorkerOverviews } from "./hooks/useWorkerOverviews";
 
 function Workers() {
   const { t } = useTranslation();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
-  // Bumped whenever the user forces a refresh, so every already-mounted
-  // WorkerCard re-checks its own live status without a full remount.
-  const [statusRefreshToken, setStatusRefreshToken] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const listRequest = useRef<AbortController | null>(null);
+  const overviews = useWorkerOverviews(workers);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
@@ -55,32 +57,38 @@ function Workers() {
 
 
   const loadWorkers = useCallback(async () => {
+    listRequest.current?.abort();
+    const controller = new AbortController();
+    listRequest.current = controller;
     try {
-      setLoading(true);
-      // DB-only fetch - no live qBittorrent check. Each WorkerCard checks
-      // its own live status independently once rendered.
-      const response = await workerService.listWorkersBasic();
+      setRefreshing(true);
+      const response = await workerService.listWorkersBasic(controller.signal);
+      if (controller.signal.aborted) return;
 
       if (response.error) {
         toast.error(response.error);
       } else if (response.data) {
-        setWorkers(response.data);
+        setWorkers([...response.data]);
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       toast.error(err instanceof Error ? err.message : t('workers.errors.failedToLoad'));
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [t]);
 
   // Load workers on component mount
   useEffect(() => {
-    loadWorkers();
+    void loadWorkers();
+    return () => { listRequest.current?.abort(); };
   }, [loadWorkers]);
 
   const handleRefresh = () => {
-    loadWorkers();
-    setStatusRefreshToken(token => token + 1);
+    void loadWorkers();
   };
 
 
@@ -97,7 +105,9 @@ function Workers() {
       if (response.error) {
         toast.error(response.error);
       } else {
-        setWorkers(workers.filter(w => w.uuid !== workerToDelete.uuid));
+        listRequest.current?.abort();
+        setRefreshing(false);
+        setWorkers(previous => previous.filter(w => w.uuid !== workerToDelete.uuid));
         toast.success(t('workers.success.deleted'));
         setShowDeleteModal(false);
         setShowDetailsModal(false);
@@ -110,7 +120,9 @@ function Workers() {
   };
 
   const handleCreateWorkerSuccess = (newWorker: Worker) => {
-    setWorkers([...workers, newWorker]);
+    listRequest.current?.abort();
+    setRefreshing(false);
+    setWorkers(previous => [...previous, newWorker]);
   };
 
   const showWorkerDetails = (worker: Worker) => {
@@ -167,10 +179,11 @@ function Workers() {
         toast.error(response.error);
       } else if (response.data) {
         // Update the worker in the list
-        const updatedWorkers = workers.map((worker) =>
+        listRequest.current?.abort();
+        setRefreshing(false);
+        setWorkers(previous => previous.map(worker =>
           worker.uuid === workerToEdit.uuid ? response.data! : worker
-        );
-        setWorkers(updatedWorkers);
+        ));
 
         // Update the selected worker if it's the same one being edited
         if (selectedWorker?.uuid === workerToEdit.uuid) {
@@ -215,8 +228,8 @@ function Workers() {
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          <Button onClick={handleRefresh} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
             {t('workers.refresh')}
           </Button>
           <Button onClick={() => setShowCreateForm(true)} size="sm">
@@ -231,6 +244,8 @@ function Workers() {
         onOpenChange={setShowCreateForm}
         onSuccess={handleCreateWorkerSuccess}
       />
+
+      <WorkerOverviewWidgets workers={filteredWorkers} states={overviews} filtered={searchTerm.trim().length > 0} refreshing={loading || refreshing} />
 
       {/* Search */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -276,7 +291,8 @@ function Workers() {
               <WorkerCard
                 key={worker.uuid}
                 worker={worker}
-                statusRefreshToken={statusRefreshToken}
+                statusRefreshToken={0}
+                liveStatus={overviewLiveStatus(overviews[worker.uuid])}
                 onShowDetails={showWorkerDetails}
               />
             ))}

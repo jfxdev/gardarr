@@ -6,6 +6,7 @@ import { QBittorrentIcon } from "./ui/QBittorrentIcon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { WorkerErrorBadge } from "./WorkerErrorDisplay";
 import { useWorkerLiveStatus } from "@/hooks/useWorkerLiveStatus";
+import type { WorkerLiveStatus } from "@/hooks/useWorkerLiveStatus";
 import type { Worker } from "@/types/worker";
 
 function formatBytes(bytes: number) {
@@ -20,11 +21,13 @@ interface WorkerCardProps {
   worker: Worker;
   statusRefreshToken: number;
   onShowDetails: (worker: Worker) => void;
+  liveStatus?: WorkerLiveStatus;
 }
 
-export function WorkerCard({ worker, statusRefreshToken, onShowDetails }: Readonly<WorkerCardProps>) {
+export function WorkerCard({ worker, statusRefreshToken, onShowDetails, liveStatus }: Readonly<WorkerCardProps>) {
   const { t } = useTranslation();
-  const live = useWorkerLiveStatus(worker.uuid, statusRefreshToken);
+  const independentLive = useWorkerLiveStatus(worker.uuid, statusRefreshToken, liveStatus === undefined);
+  const live = liveStatus ?? independentLive;
 
   // Merge DB-only fields (name/address/icon/color) with the lazily-loaded
   // live status, so downstream consumers (WorkerErrorBadge, details modal)

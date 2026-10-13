@@ -595,3 +595,68 @@ func TestMigration034RenamesImageOpacityToBrightness(t *testing.T) {
 		t.Error("Expected column image_opacity to no longer exist on task_metadata table")
 	}
 }
+
+func TestMigration048AddsPreferredWorkerOnExistingDatabase(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := migration.NewMigrator(db)
+	Register(m)
+	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasColumn(&models.Category{}, "PreferredWorkerID") {
+		t.Fatal("fresh database missing preferred worker column")
+	}
+	var seeded []models.Category
+	if err := db.Find(&seeded).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, cat := range seeded {
+		if cat.PreferredWorkerID != "" {
+			t.Fatal("existing category should default to no preference")
+		}
+	}
+	category := models.Category{ID: "custom", Name: "Custom", DefaultTags: models.StringArray{"custom-tag"}, DefaultDirectories: models.StringArray{"/custom"}, Color: "#123456", ReleaseType: "movie"}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Simulate an installation where every migration before 048 completed.
+	if err := db.Migrator().DropIndex(&models.Category{}, "idx_categories_preferred_worker_id"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropColumn(&models.Category{}, "PreferredWorkerID"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", "048_add_category_preferred_worker").Delete(&migration.Migration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+	var got models.Category
+	if err := db.First(&got, "id = ?", category.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.PreferredWorkerID != "" || got.Color != category.Color || got.ReleaseType != category.ReleaseType || !slices.Equal(got.DefaultTags, category.DefaultTags) || !slices.Equal(got.DefaultDirectories, category.DefaultDirectories) {
+		t.Fatalf("migration changed existing settings: %+v", got)
+	}
+	if !db.Migrator().HasIndex(&models.Category{}, "idx_categories_preferred_worker_id") {
+		t.Fatal("missing preferred worker index")
+	}
+	got.PreferredWorkerID = uuid.NewString()
+	if err := db.Save(&got).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+	var after models.Category
+	if err := db.First(&after, "id = ?", got.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if after.PreferredWorkerID != got.PreferredWorkerID {
+		t.Fatal("re-running migrations erased preference")
+	}
+}

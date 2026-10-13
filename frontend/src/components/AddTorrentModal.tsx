@@ -53,6 +53,8 @@ export function AddTorrentModal() {
   const { isAddModalOpen, addModalMode, closeAddModal, addPendingTorrent, removePendingTorrent } = useAddTorrent();
 
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [workersLoaded, setWorkersLoaded] = useState(false);
+  const [workerManuallySelected, setWorkerManuallySelected] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [mode, setMode] = useState<AddTorrentMode>("magnet");
   const [isCreating, setIsCreating] = useState(false);
@@ -107,6 +109,9 @@ export function AddTorrentModal() {
     [categories, selectedCategoryId]
   );
   const categoryDirectories = selectedCategory?.default_directories || [];
+  const preferredWorkerUnavailable = workersLoaded && !workerManuallySelected &&
+    !!selectedCategory?.preferred_worker_id &&
+    !activeWorkers.some((worker) => worker.uuid === selectedCategory.preferred_worker_id);
 
   useEffect(() => {
     if (!isAddModalOpen) {
@@ -114,6 +119,14 @@ export function AddTorrentModal() {
     }
 
     setSelectedWorkerId("");
+    setWorkerManuallySelected(false);
+    setWorkersLoaded(false);
+    setWorkers([]);
+    setCategories([]);
+    categoriesRef.current = [];
+    selectedCategoryIdRef.current = "";
+    releaseSuggestionRef.current = null;
+    userEditedRef.current = { category: false, directory: false, tags: false, displayName: false };
     setMode(addModalMode);
     setSelectedCategoryId("");
     setMagnetUri("");
@@ -135,12 +148,14 @@ export function AddTorrentModal() {
     workerService
       .listWorkers()
       .then((response) => {
-        if (!cancelled && response.data) {
-          setWorkers(response.data);
+        if (!cancelled) {
+          setWorkers(response.data || []);
+          setWorkersLoaded(true);
         }
       })
       .catch((error) => {
         console.error("Failed to load workers:", error);
+        if (!cancelled) setWorkersLoaded(true);
       });
 
     categoryService.listCategories().then((response) => {
@@ -166,12 +181,17 @@ export function AddTorrentModal() {
   }, [isAddModalOpen, addModalMode]);
 
   useEffect(() => {
-    if (!isAddModalOpen || selectedWorkerId !== "") {
+    if (!isAddModalOpen || !workersLoaded || workerManuallySelected) {
       return;
     }
 
-    setSelectedWorkerId(activeWorkers.length > 0 ? activeWorkers[0].uuid : "");
-  }, [isAddModalOpen, activeWorkers, selectedWorkerId]);
+    const preferredId = selectedCategory?.preferred_worker_id;
+    const nextWorkerId = preferredId
+      ? activeWorkers.find((worker) => worker.uuid === preferredId)?.uuid || ""
+      : activeWorkers[0]?.uuid || "";
+    setSelectedWorkerId(nextWorkerId);
+    setErrors((current) => current.worker ? { ...current, worker: "" } : current);
+  }, [isAddModalOpen, workersLoaded, workerManuallySelected, activeWorkers, selectedCategory?.preferred_worker_id]);
 
   useEffect(() => {
     const trimmedMagnetUri = magnetUri.trim();
@@ -335,10 +355,10 @@ export function AddTorrentModal() {
     } else if (!magnetUri.trim().startsWith("magnet:")) {
       nextErrors.magnetUri = t("torrents.addModal.errors.magnetInvalidPrefix");
     } else if (!parsedMagnetLink?.hash) {
-      nextErrors.magnetUri = t("torrents.addModal.errors.magnetInvalidPrefix");
+      nextErrors.magnetUri = t("torrents.addModal.errors.magnetInvalidHash");
     }
 
-    if (!selectedWorkerId) {
+    if (!selectedWorker || preferredWorkerUnavailable) {
       nextErrors.worker = t("torrents.addModal.errors.workerRequired");
     }
 
@@ -379,6 +399,7 @@ export function AddTorrentModal() {
   };
 
   const handleWorkerChange = (workerId: string) => {
+    setWorkerManuallySelected(true);
     setSelectedWorkerId(workerId);
     setErrors((current) => ({ ...current, worker: "" }));
     setWorkerDropdownOpen(false);
@@ -838,6 +859,7 @@ export function AddTorrentModal() {
             </Label>
             <div className="relative" ref={workerDropdownRef}>
               <Button
+                id="worker"
                 type="button"
                 variant="outline"
                 onClick={() => setWorkerDropdownOpen(!workerDropdownOpen)}
@@ -878,6 +900,11 @@ export function AddTorrentModal() {
               )}
             </div>
 
+            {preferredWorkerUnavailable && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {t("torrents.addModal.worker.preferredUnavailable")}
+              </p>
+            )}
             {errors.worker && <p className="text-sm text-destructive">{errors.worker}</p>}
           </div>
         </div>

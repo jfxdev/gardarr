@@ -2,6 +2,7 @@ import { api } from '../lib/api';
 import type { ApiResponse } from '../lib/api';
 import type {
   Worker,
+  WorkerOverview,
   CreateWorkerRequest,
   UpdateWorkerRequest,
   Version,
@@ -30,11 +31,11 @@ export class WorkerService {
   /**
    * Lists all workers straight from the database, skipping the live
    * qBittorrent connectivity/instance check (fast path for an initial
-   * render). Each worker's real status should be fetched separately per
-   * row via getWorker().
+   * render). Callers load status separately via getWorker() or the shared
+   * overview used by the Workers page.
    */
-  async listWorkersBasic(): Promise<ApiResponse<Worker[]>> {
-    return api.get<Worker[]>(`/workers/?live=false`);
+  async listWorkersBasic(signal?: AbortSignal): Promise<ApiResponse<Worker[]>> {
+    return api.get<Worker[]>(`/workers/?live=false`, { signal });
   }
 
   /**
@@ -42,6 +43,10 @@ export class WorkerService {
    */
   async getWorker(workerId: string): Promise<ApiResponse<Worker>> {
     return api.get<Worker>(`/worker/${workerId}/`);
+  }
+
+  async getWorkerOverview(workerId: string, signal?: AbortSignal): Promise<ApiResponse<WorkerOverview>> {
+    return api.get<WorkerOverview>(`/worker/${workerId}/overview`, { signal });
   }
 
   /**

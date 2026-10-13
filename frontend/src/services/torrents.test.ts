@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TorrentService } from './torrents';
+import { TorrentService, convertMagnetUriToTaskMagnetLink } from './torrents';
 import { api } from '../lib/api';
 import type { Task, CreateTaskRequest } from '../types/torrent';
 
@@ -12,6 +12,38 @@ vi.mock('../lib/api', () => ({
     delete: vi.fn(),
   },
 }));
+
+describe('convertMagnetUriToTaskMagnetLink', () => {
+  const hexHash = '5a0cdacbd5571efcdd5e279fcb0e913b6c36cb36';
+  const base32Hash = 'lignvs6vk4ppzxk6e6p4wdurhnwdnszw';
+
+  it.each([base32Hash, base32Hash.toUpperCase(), hexHash, hexHash.toUpperCase()])(
+    'normalizes %s to the same hexadecimal torrent hash', (hash) => {
+      expect(convertMagnetUriToTaskMagnetLink(`magnet:?xt=urn:btih:${hash}`)?.hash).toBe(hexHash);
+    },
+  );
+
+  it('parses a synthetic Base32 magnet and preserves its metadata', () => {
+    const uri = `magnet:?xt=urn:btih:${base32Hash}&dn=Gardarr Test Fixture.2026.1080p.WEB-DL.x264&tr=udp://tracker.example.invalid:1337/announce`;
+    expect(convertMagnetUriToTaskMagnetLink(uri)).toEqual({
+      hash: hexHash,
+      display_name: 'Gardarr Test Fixture.2026.1080p.WEB-DL.x264',
+      trackers: ['udp://tracker.example.invalid:1337/announce'],
+      exact_length: '',
+      exact_source: '',
+    });
+  });
+
+  it.each([base32Hash.slice(1), `${base32Hash}a`, `${hexHash}a`, '0'.repeat(32), `prefix-urn:btih:${hexHash}`])(
+    'does not accept a malformed hash %s', (hash) => {
+      expect(convertMagnetUriToTaskMagnetLink(`magnet:?xt=urn:btih:${hash}`)?.hash).toBe('');
+    },
+  );
+
+  it('rejects a different URI scheme', () => {
+    expect(convertMagnetUriToTaskMagnetLink(`https://example.com?xt=urn:btih:${hexHash}`)).toBeNull();
+  });
+});
 
 describe('TorrentService', () => {
   let torrentService: TorrentService;

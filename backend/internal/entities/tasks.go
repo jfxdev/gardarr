@@ -7,32 +7,33 @@ import (
 )
 
 type Task struct {
-	ID           string
-	WorkerID     uuid.UUID
-	CreatedAt    time.Time
-	CompletedAt  *time.Time
-	Name         string
-	Hash         string
-	InfoHashV1   string
-	InfoHashV2   string
-	State        string
-	Category     string
-	Path         string
-	Size         int
-	Active       bool
-	Priority     int
-	Ratio        float64
-	Progress     float64
-	Popularity   float64
-	MagnetLink   TaskMagnetLink
-	Tags         []string
-	MagnetURI    string
-	Pairs        TaskPairs
-	NumSeeds     int
-	SuperSeeding bool
-	Network      TaskNetwork
-	Metadata     *TaskMetadata // Optional task metadata
-	WasCreated   bool
+	ID             string
+	WorkerID       uuid.UUID
+	CreatedAt      time.Time
+	CompletedAt    *time.Time
+	Name           string
+	Hash           string
+	InfoHashV1     string
+	InfoHashV2     string
+	State          string
+	Category       string
+	Path           string
+	Size           int
+	CompletedBytes *int64
+	Active         bool
+	Priority       int
+	Ratio          float64
+	Progress       float64
+	Popularity     float64
+	MagnetLink     TaskMagnetLink
+	Tags           []string
+	MagnetURI      string
+	Pairs          TaskPairs
+	NumSeeds       int
+	SuperSeeding   bool
+	Network        TaskNetwork
+	Metadata       *TaskMetadata // Optional task metadata
+	WasCreated     bool
 }
 
 type TaskMagnetLink struct {
@@ -161,6 +162,7 @@ var InactiveTaskStates = []string{
 }
 
 type TaskStats struct {
+	StoredBytes          *int64
 	TotalDiskSize        int64
 	CurrentUploadSpeed   int
 	CurrentDownloadSpeed int

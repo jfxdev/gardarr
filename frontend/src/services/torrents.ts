@@ -333,8 +333,25 @@ export function convertMagnetUriToTaskMagnetLink(magnetUri: string): TaskMagnetL
     }
 
     // Extrai o hash do torrent (xt parameter)
-    const xtMatch = url.searchParams.get('xt')?.match(/urn:btih:([a-fA-F0-9]{40})/);
-    const hash = xtMatch ? xtMatch[1] : '';
+    const xtMatch = url.searchParams.get('xt')?.match(/^urn:btih:([a-f0-9]{40}|[a-z2-7]{32})$/i);
+    let hash = xtMatch ? xtMatch[1].toLowerCase() : '';
+    if (hash.length === 32) {
+      // Base32 and hexadecimal magnets must share the same pending-task key.
+      const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+      let buffer = 0;
+      let bits = 0;
+      let hex = '';
+      for (const character of hash) {
+        buffer = (buffer << 5) | alphabet.indexOf(character);
+        bits += 5;
+        if (bits >= 8) {
+          bits -= 8;
+          hex += ((buffer >>> bits) & 0xff).toString(16).padStart(2, '0');
+          buffer &= (1 << bits) - 1;
+        }
+      }
+      hash = hex;
+    }
 
     // Extrai o nome do torrent (dn parameter)
     const displayName = url.searchParams.get('dn') || '';

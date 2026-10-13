@@ -7,6 +7,7 @@ type Category struct {
 	Name               string
 	DefaultTags        []string
 	DefaultDirectories []string
+	PreferredWorkerID  string
 	MetadataSource     string
 	ReleaseType        string
 	Color              string // Optional color for frontend display

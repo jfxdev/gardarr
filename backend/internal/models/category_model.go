@@ -43,6 +43,7 @@ type Category struct {
 	Name               string      `gorm:"size:100;not null;uniqueIndex"`
 	DefaultTags        StringArray `gorm:"type:text"`
 	DefaultDirectories StringArray `gorm:"column:default_directories;type:text"`
+	PreferredWorkerID  string      `gorm:"size:36;not null;default:'';index"`
 	MetadataSource     string      `gorm:"size:50;not null;default:'none'"`
 	ReleaseType        string      `gorm:"size:20;not null;default:'none'"`
 	Color              string      `gorm:"size:50"`
@@ -71,6 +72,7 @@ type CategoryResponse struct {
 	Name               string      `json:"name"`
 	DefaultTags        StringArray `json:"default_tags"`
 	DefaultDirectories StringArray `json:"default_directories"`
+	PreferredWorkerID  string      `json:"preferred_worker_id"`
 	MetadataSource     string      `json:"metadata_source"`
 	ReleaseType        string      `json:"release_type"`
 	Color              string      `json:"color,omitempty"`

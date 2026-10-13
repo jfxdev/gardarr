@@ -125,6 +125,19 @@ export interface WorkerListResponse {
   data: Worker[];
 }
 
+export interface WorkerOverview {
+  worker: Worker;
+  collected_at: string;
+  metrics: {
+    stored_bytes: number | null;
+    total_torrents: number | null;
+    active_torrents: number | null;
+    download_speed: number | null;
+    upload_speed: number | null;
+  };
+  metrics_error?: string;
+}
+
 export interface WorkerCreateResponse {
   data: Worker;
 }

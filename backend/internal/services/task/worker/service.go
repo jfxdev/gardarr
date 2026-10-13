@@ -56,7 +56,7 @@ func (s *service) CreateTask(ctx context.Context, schema schemas.TaskCreateSchem
 	}
 
 	for _, item := range list {
-		if strings.EqualFold(item.MagnetLink.Hash, uri.Hash) {
+		if strings.EqualFold(item.Hash, uri.Hash) || strings.EqualFold(item.MagnetLink.Hash, uri.Hash) {
 			item.WasCreated = false
 			return item, nil
 		}
@@ -190,7 +190,9 @@ func (s *service) GetTasksStats(ctx context.Context) (*entities.TaskStats, error
 		return nil, err
 	}
 
+	var storedBytes int64
 	stats := &entities.TaskStats{
+		StoredBytes:          &storedBytes,
 		TotalDiskSize:        0,
 		CurrentUploadSpeed:   0,
 		CurrentDownloadSpeed: 0,
@@ -220,6 +222,13 @@ func (s *service) GetTasksStats(ctx context.Context) (*entities.TaskStats, error
 	for _, task := range tasks {
 		// Calculate total disk size
 		stats.TotalDiskSize += int64(task.Size)
+		// completed is content present, whereas downloaded is a traffic counter
+		// and Size includes data that has not been downloaded yet.
+		if task.CompletedBytes == nil || *task.CompletedBytes < 0 {
+			stats.StoredBytes = nil
+		} else if stats.StoredBytes != nil {
+			storedBytes += *task.CompletedBytes
+		}
 
 		// Calculate current speeds
 		totalUploadSpeed += task.Network.Upload.Speed

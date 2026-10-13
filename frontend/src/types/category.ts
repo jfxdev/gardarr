@@ -23,6 +23,7 @@ export interface Category {
   name: string;
   default_tags: string[];
   default_directories: string[];
+  preferred_worker_id?: string;
   metadata_source: CategoryMetadataSource;
   release_type?: CategoryReleaseType;
   color?: string;
@@ -35,6 +36,7 @@ export interface CreateCategoryRequest {
   name: string;
   default_tags?: string[];
   default_directories: string[];
+  preferred_worker_id?: string;
   metadata_source?: CategoryMetadataSource;
   release_type?: CategoryReleaseType;
   color?: string;
@@ -44,6 +46,7 @@ export interface CreateCategoryRequest {
 export interface UpdateCategoryRequest {
   default_tags?: string[];
   default_directories?: string[];
+  preferred_worker_id?: string;
   metadata_source?: CategoryMetadataSource;
   release_type?: CategoryReleaseType;
   color?: string;

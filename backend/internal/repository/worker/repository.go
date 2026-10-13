@@ -382,7 +382,12 @@ func (r *Repository) UpdateWorker(ctx context.Context, uid uuid.UUID, updates ma
 }
 
 func (r *Repository) DeleteWorker(uid uuid.UUID) error {
-	if err := r.db.DB.Where("uuid = ?", uid).Delete(&models.Worker{}).Error; err != nil {
+	if err := r.db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Category{}).Where("preferred_worker_id = ?", uid.String()).Update("preferred_worker_id", "").Error; err != nil {
+			return err
+		}
+		return tx.Where("uuid = ?", uid).Delete(&models.Worker{}).Error
+	}); err != nil {
 		return err
 	}
 
