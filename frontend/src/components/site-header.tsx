@@ -19,7 +19,7 @@ export function SiteHeader({
   const { t } = useTranslation()
 
   return (
-    <header className="flex h-[calc(var(--header-height)+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b bg-background pt-[env(safe-area-inset-top)] transition-[width,height] ease-linear">
+    <header className="flex h-[calc(var(--header-height)+env(safe-area-inset-top)+0.5rem)] shrink-0 items-center gap-2 border-b bg-background pt-[calc(env(safe-area-inset-top)+0.5rem)] transition-[width,height] ease-linear">
       <div className="flex w-full min-w-0 items-center gap-1 px-4 lg:gap-2 lg:px-6">
         <SidebarTrigger
           aria-label={t("navigation.toggleSidebar")}
