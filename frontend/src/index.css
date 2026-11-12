@@ -501,16 +501,19 @@ html[data-color-variant="custom"] {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     height: 100%;
-    max-height: 100vh;
-    max-height: 100dvh;
     margin: 0;
     padding: 0;
     overflow: hidden;
   }
+  /* Fixed to all four edges so the app reaches the bottom edge on iOS
+     (under the home indicator) instead of stopping at 100dvh. */
+  body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
   #root {
     height: 100%;
-    max-height: 100vh;
-    max-height: 100dvh;
     overflow: hidden;
   }
 }
@@ -665,15 +668,6 @@ html[data-color-variant="custom"] {
   .min-h-screen {
     min-height: 100vh;
     min-height: 100dvh; /* Dynamic viewport height para mobile */
-    max-height: 100vh;
-    max-height: 100dvh;
-  }
-
-  /* Garantir que body e root não criem scroll infinito no mobile */
-  html, body {
-    max-height: 100vh;
-    max-height: 100dvh;
-    overflow: hidden;
   }
 }
 

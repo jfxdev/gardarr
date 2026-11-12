@@ -98,7 +98,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       minWidth={MIN_SIDEBAR_WIDTH}
       maxWidth={MAX_SIDEBAR_WIDTH}
       resizable
-      className="h-dvh min-h-0 max-h-dvh overflow-hidden bg-background text-foreground safe-left safe-right"
+      className="h-full min-h-0 overflow-hidden bg-background text-foreground safe-left safe-right"
       style={
         {
           "--header-height": "3rem",
